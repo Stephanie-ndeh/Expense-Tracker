@@ -7,6 +7,7 @@ import TransactionFeed from './components/TransactionFeed.vue'
 import RecentExpenses from './components/RecentExpenses.vue'
 import OtherActivity from './components/OtherActivity.vue'
 import AddEntry from './components/AddEntry.vue'
+import WalletTabs from './components/WalletTabs.vue'
 import PeopleView from './components/PeopleView.vue'
 import ExpensesView from './components/ExpensesView.vue'
 import TrendsView from './components/TrendsView.vue'
@@ -66,6 +67,7 @@ async function handleImportFile(e: Event) {
       <button @click="showSettings = true" class="text-xs" style="color: var(--paper-dim)">{{ settings.currency }} ⚙</button>
     </header>
 
+    <WalletTabs />
     <BalanceHero />
     <SummaryCards @open-people="showPeople = true" />
     <TrendChart @open-trends="view = 'trends'" />
@@ -94,7 +96,7 @@ async function handleImportFile(e: Event) {
           <input
             v-model="settings.currency"
             type="text"
-            class="w-full mt-1 rounded-lg px-3 py-2 text-sm outline-none border"
+            class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
             style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
           />
         </label>

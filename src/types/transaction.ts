@@ -8,6 +8,7 @@ export type TransactionType =
 
 export interface Transaction {
   id: string
+  walletId: string
   type: TransactionType
   amount: number
   date: string // ISO date, yyyy-mm-dd
