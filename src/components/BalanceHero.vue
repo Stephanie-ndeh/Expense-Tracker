@@ -2,11 +2,16 @@
 import { computed } from 'vue'
 import { useLedger } from '../composables/useLedger'
 import { useSettings } from '../composables/useSettings'
+import { useWallets } from '../composables/useWallets'
 
 const { balance, thisMonthSpend } = useLedger()
 const { format } = useSettings()
+const { wallets, activeWalletId } = useWallets()
 
 const isNegative = computed(() => balance.value < 0)
+
+const activeWalletName = computed(() => wallets.value.find((w) => w.id === activeWalletId.value)?.name ?? '')
+const showFrontedBanner = computed(() => activeWalletId.value !== 'all' && balance.value < 0)
 </script>
 
 <template>
@@ -21,5 +26,13 @@ const isNegative = computed(() => balance.value < 0)
     <p class="text-sm mt-2" style="color: var(--paper-dim)">
       {{ format(thisMonthSpend) }} spent so far this month
     </p>
+
+    <div
+      v-if="showFrontedBanner"
+      class="mt-4 rounded-xl px-4 py-3 text-sm font-medium"
+      style="background: color-mix(in srgb, var(--money-out) 18%, transparent); color: var(--money-out); border: 1px solid var(--money-out)"
+    >
+      You've fronted {{ format(Math.abs(balance)) }} on {{ activeWalletName }} — remember to claim it back.
+    </div>
   </div>
 </template>

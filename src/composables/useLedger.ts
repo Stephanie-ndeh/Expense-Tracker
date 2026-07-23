@@ -1,6 +1,7 @@
 import { computed, reactive, watch } from 'vue'
 import type { Transaction, TransactionType } from '../types/transaction'
 import { TYPE_META } from '../types/transaction'
+import { getDefaultWalletId, useWallets } from './useWallets'
 
 const STORAGE_KEY = 'ledger.transactions.v1'
 
@@ -8,7 +9,19 @@ function load(): Transaction[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return []
-    return JSON.parse(raw) as Transaction[]
+    const parsed = JSON.parse(raw) as Transaction[]
+    if (!Array.isArray(parsed)) return []
+
+    // Migration: transactions saved before multi-wallet support have no walletId.
+    const defaultWalletId = getDefaultWalletId()
+    let migrated = false
+    const result = parsed.map((t) => {
+      if (t.walletId) return t
+      migrated = true
+      return { ...t, walletId: defaultWalletId }
+    })
+    if (migrated) localStorage.setItem(STORAGE_KEY, JSON.stringify(result))
+    return result
   } catch {
     return []
   }
@@ -33,13 +46,21 @@ function uid() {
 const today = () => new Date().toISOString().slice(0, 10)
 
 export function useLedger() {
-  const transactions = computed(() =>
-    [...state.transactions].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.createdAt - a.createdAt)),
+  const { activeWalletId } = useWallets()
+
+  const scopedTransactions = computed(() =>
+    activeWalletId.value === 'all'
+      ? state.transactions
+      : state.transactions.filter((t) => t.walletId === activeWalletId.value),
   )
 
-  const settled = computed(() => state.transactions.filter((t) => !t.planned && t.date <= today()))
+  const transactions = computed(() =>
+    [...scopedTransactions.value].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.createdAt - a.createdAt)),
+  )
+
+  const settled = computed(() => scopedTransactions.value.filter((t) => !t.planned && t.date <= today()))
   const upcoming = computed(() =>
-    [...state.transactions]
+    [...scopedTransactions.value]
       .filter((t) => t.planned || t.date > today())
       .sort((a, b) => (a.date > b.date ? 1 : -1)),
   )
@@ -97,6 +118,7 @@ export function useLedger() {
     note: string
     label: string
     planned: boolean
+    walletId: string
   }) {
     state.transactions.push({
       id: uid(),
@@ -118,7 +140,7 @@ export function useLedger() {
   // --- Per-person lending view ---
   const personSummaries = computed(() => {
     const byPerson = new Map<string, Transaction[]>()
-    for (const t of state.transactions) {
+    for (const t of scopedTransactions.value) {
       if (t.type !== 'lend' && t.type !== 'repay') continue
       const list = byPerson.get(t.label) ?? []
       list.push(t)

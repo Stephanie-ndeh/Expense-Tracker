@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { reactive } from 'vue'
+import { computed, reactive, watch } from 'vue'
 import type { TransactionType } from '../types/transaction'
 import { TYPE_META } from '../types/transaction'
 import { useLedger } from '../composables/useLedger'
+import { useSettings } from '../composables/useSettings'
+import { useWallets } from '../composables/useWallets'
 
 const emit = defineEmits<{ close: [] }>()
-const { addTransaction } = useLedger()
+const { addTransaction, personSummaries } = useLedger()
+const { format } = useSettings()
+const { wallets, activeWalletId } = useWallets()
 
 const today = new Date().toISOString().slice(0, 10)
 
@@ -13,9 +17,11 @@ const form = reactive({
   type: 'expense' as TransactionType,
   amount: '',
   label: '',
+  otherLabel: '',
   note: '',
   date: today,
   planned: false,
+  walletId: activeWalletId.value !== 'all' ? activeWalletId.value : (wallets.value[0]?.id ?? ''),
 })
 
 const types: { value: TransactionType; short: string }[] = [
@@ -27,16 +33,39 @@ const types: { value: TransactionType; short: string }[] = [
   { value: 'withdraw', short: 'From savings' },
 ]
 
+const EXPENSE_CATEGORIES = ['Food', 'Transport', 'Shopping', 'Airtime/Data', 'Bills', 'Family/Support', 'Other']
+const INCOME_CATEGORIES = ['Salary', 'Gifted', 'Side job', 'Refund', 'Borrowed', 'Other']
+const categoryOptions = computed(() => (form.type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES))
+
+// A stale category/person/otherLabel from one type shouldn't leak into the next.
+watch(
+  () => form.type,
+  () => {
+    form.label = ''
+    form.otherLabel = ''
+  },
+)
+
 function submit() {
   const amount = parseFloat(form.amount)
   if (!amount || amount <= 0) return
+  if ((form.type === 'expense' || form.type === 'income' || form.type === 'repay') && !form.label) return
+
+  const label =
+    form.type === 'expense' || form.type === 'income'
+      ? form.label === 'Other'
+        ? form.otherLabel.trim() || 'Other'
+        : form.label
+      : form.label.trim() || TYPE_META[form.type].labelHint
+
   addTransaction({
     type: form.type,
     amount,
-    label: form.label.trim() || TYPE_META[form.type].labelHint,
+    label,
     note: form.note.trim(),
     date: form.date,
     planned: form.planned || form.date > today,
+    walletId: form.walletId,
   })
   emit('close')
 }
@@ -72,6 +101,17 @@ function submit() {
         </button>
       </div>
 
+      <label class="block mb-4" v-if="wallets.length > 1">
+        <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Wallet</span>
+        <select
+          v-model="form.walletId"
+          class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
+          style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+        >
+          <option v-for="w in wallets" :key="w.id" :value="w.id">{{ w.name }}</option>
+        </select>
+      </label>
+
       <label class="block mb-4">
         <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Amount</span>
         <input
@@ -88,12 +128,51 @@ function submit() {
         />
       </label>
 
-      <label class="block mb-4">
+      <label v-if="form.type === 'expense' || form.type === 'income'" class="block mb-4">
+        <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">{{ TYPE_META[form.type].labelHint }}</span>
+        <select
+          v-model="form.label"
+          required
+          class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
+          style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+        >
+          <option value="" disabled>Select a category</option>
+          <option v-for="c in categoryOptions" :key="c" :value="c">{{ c }}</option>
+        </select>
+      </label>
+
+      <label v-if="(form.type === 'expense' || form.type === 'income') && form.label === 'Other'" class="block mb-4">
+        <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Specify (optional)</span>
+        <input
+          v-model="form.otherLabel"
+          type="text"
+          class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
+          style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+        />
+      </label>
+
+      <label v-if="form.type === 'repay'" class="block mb-4">
+        <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">{{ TYPE_META[form.type].labelHint }}</span>
+        <select
+          v-model="form.label"
+          required
+          :disabled="!personSummaries.length"
+          class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
+          style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+        >
+          <option value="" disabled>
+            {{ personSummaries.length ? "Select who you're paying back" : "No one to repay yet — log a 'Lent out' entry first" }}
+          </option>
+          <option v-for="p in personSummaries" :key="p.name" :value="p.name">{{ p.name }} — owed {{ format(p.netOwed) }}</option>
+        </select>
+      </label>
+
+      <label v-if="form.type === 'lend' || form.type === 'save' || form.type === 'withdraw'" class="block mb-4">
         <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">{{ TYPE_META[form.type].labelHint }}</span>
         <input
           v-model="form.label"
           type="text"
-          class="w-full mt-1 rounded-lg px-3 py-2 text-sm outline-none border"
+          class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
           style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
         />
       </label>
@@ -103,7 +182,7 @@ function submit() {
         <input
           v-model="form.note"
           type="text"
-          class="w-full mt-1 rounded-lg px-3 py-2 text-sm outline-none border"
+          class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
           style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
         />
       </label>
@@ -114,7 +193,7 @@ function submit() {
           <input
             v-model="form.date"
             type="date"
-            class="w-full mt-1 rounded-lg px-3 py-2 text-sm outline-none border"
+            class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
             style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
           />
         </label>
