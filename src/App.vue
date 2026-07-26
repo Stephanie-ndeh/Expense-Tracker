@@ -11,8 +11,11 @@ import PeopleView from './components/PeopleView.vue'
 import AllActivityView from './components/AllActivityView.vue'
 import TrendsView from './components/TrendsView.vue'
 import UpdateBanner from './components/UpdateBanner.vue'
+import AuthGate from './components/AuthGate.vue'
 import { useSettings } from './composables/useSettings'
 import { useLedger } from './composables/useLedger'
+import { useAuth } from './composables/useAuth'
+import { useSync } from './composables/useSync'
 
 type View = 'home' | 'activity' | 'trends'
 const view = ref<View>('home')
@@ -22,6 +25,16 @@ const showSettings = ref(false)
 const showPeople = ref(false)
 const { settings } = useSettings()
 const { exportData, importData } = useLedger()
+const { enabled: syncEnabled, loading: authLoading, isAuthenticated, userEmail, signOut } = useAuth()
+const { syncing, lastSyncedAt, error: syncError, syncNow } = useSync()
+
+function lastSyncedLabel() {
+  if (!lastSyncedAt.value) return 'Not synced yet'
+  const mins = Math.round((Date.now() - lastSyncedAt.value) / 60000)
+  if (mins < 1) return 'Synced just now'
+  if (mins < 60) return `Synced ${mins}m ago`
+  return `Synced ${Math.round(mins / 60)}h ago`
+}
 
 const importFile = ref<HTMLInputElement | null>(null)
 const importMessage = ref('')
@@ -60,7 +73,10 @@ async function handleImportFile(e: Event) {
 <template>
   <UpdateBanner />
 
-  <AllActivityView v-if="view === 'activity'" @back="view = 'home'" />
+  <div v-if="syncEnabled && authLoading" class="min-h-screen" style="background: var(--ink)" />
+  <AuthGate v-else-if="syncEnabled && !isAuthenticated" />
+
+  <AllActivityView v-else-if="view === 'activity'" @back="view = 'home'" />
   <TrendsView v-else-if="view === 'trends'" @back="view = 'home'" />
 
   <div v-else class="min-h-screen pb-28" style="background: var(--ink); color: var(--paper)">
@@ -102,10 +118,35 @@ async function handleImportFile(e: Event) {
           />
         </label>
 
+        <div v-if="syncEnabled" class="border-t pt-4 mt-4" style="border-color: var(--ink-line)">
+          <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Sync</span>
+          <p class="text-xs mt-1" style="color: var(--paper-dim)">{{ userEmail }}</p>
+          <p class="text-xs mt-1" :style="{ color: syncError ? 'var(--money-out)' : 'var(--paper-dim)' }">
+            {{ syncError ? `Sync error: ${syncError}` : syncing ? 'Syncing…' : lastSyncedLabel() }}
+          </p>
+          <div class="flex gap-2 mt-3">
+            <button
+              @click="syncNow"
+              :disabled="syncing"
+              class="flex-1 py-2 rounded-lg text-xs font-medium border disabled:opacity-50"
+              style="border-color: var(--ink-line); color: var(--paper)"
+            >
+              Sync now
+            </button>
+            <button
+              @click="signOut"
+              class="flex-1 py-2 rounded-lg text-xs font-medium border"
+              style="border-color: var(--ink-line); color: var(--paper)"
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+
         <div class="border-t pt-4 mt-4" style="border-color: var(--ink-line)">
           <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Backup</span>
           <p class="text-xs mt-1 mb-3" style="color: var(--paper-dim)">
-            Your data only lives on this device. Export it now and then so you never lose it.
+            {{ syncEnabled ? 'Your data syncs to your account, but a local export is still a good habit before switching devices.' : 'Your data only lives on this device. Export it now and then so you never lose it.' }}
           </p>
           <div class="flex gap-2">
             <button

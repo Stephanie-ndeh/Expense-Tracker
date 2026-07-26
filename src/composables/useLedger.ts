@@ -46,6 +46,16 @@ function uid() {
 
 const today = () => new Date().toISOString().slice(0, 10)
 
+/** Fired on every local add/update/delete, so `useSync.ts` can push it up without a circular import. */
+type MutationEvent = { kind: 'upsert'; transaction: Transaction } | { kind: 'delete'; id: string }
+const mutationListeners: ((e: MutationEvent) => void)[] = []
+export function onLedgerMutation(fn: (e: MutationEvent) => void) {
+  mutationListeners.push(fn)
+}
+function notify(e: MutationEvent) {
+  mutationListeners.forEach((fn) => fn(e))
+}
+
 export function useLedger() {
   const { activeWalletId, wallets, importWallets } = useWallets()
 
@@ -121,21 +131,29 @@ export function useLedger() {
     planned: boolean
     walletId: string
   }) {
-    state.transactions.push({
+    const t: Transaction = {
       id: uid(),
       createdAt: Date.now(),
       ...input,
-    })
+    }
+    state.transactions.push(t)
+    notify({ kind: 'upsert', transaction: t })
   }
 
   function removeTransaction(id: string) {
     const idx = state.transactions.findIndex((t) => t.id === id)
-    if (idx !== -1) state.transactions.splice(idx, 1)
+    if (idx !== -1) {
+      state.transactions.splice(idx, 1)
+      notify({ kind: 'delete', id })
+    }
   }
 
   function markSettled(id: string) {
     const t = state.transactions.find((t) => t.id === id)
-    if (t) t.planned = false
+    if (t) {
+      t.planned = false
+      notify({ kind: 'upsert', transaction: t })
+    }
   }
 
   // --- Per-person lending view ---
@@ -281,9 +299,24 @@ export function useLedger() {
     }
     const existingIds = new Set(state.transactions.map((t) => t.id))
     for (const t of incoming) {
-      if (!existingIds.has(t.id)) state.transactions.push(t)
+      if (!existingIds.has(t.id)) {
+        state.transactions.push(t)
+        notify({ kind: 'upsert', transaction: t })
+      }
     }
     if (incomingWallets.length) importWallets(incomingWallets, 'merge')
+  }
+
+  /** Pull-merge from Supabase: add anything new, drop anything tombstoned remotely. No `notify` — would just push it right back. */
+  function applyRemoteTransactions(items: Transaction[], deletedIds: string[] = []) {
+    if (deletedIds.length) {
+      const del = new Set(deletedIds)
+      state.transactions = state.transactions.filter((t) => !del.has(t.id))
+    }
+    const existingIds = new Set(state.transactions.map((t) => t.id))
+    for (const t of items) {
+      if (!existingIds.has(t.id)) state.transactions.push(t)
+    }
   }
 
   return {
@@ -307,5 +340,7 @@ export function useLedger() {
     categoryComparison,
     exportData,
     importData,
+    applyRemoteTransactions,
+    rawTransactions: computed(() => state.transactions),
   }
 }
