@@ -51,10 +51,22 @@ export function useWallets() {
     activeWalletId.value = wallet.id
   }
 
+  function importWallets(incoming: Wallet[], mode: 'merge' | 'replace') {
+    if (mode === 'replace') {
+      state.wallets = incoming
+      return
+    }
+    const existingIds = new Set(state.wallets.map((w) => w.id))
+    for (const w of incoming) {
+      if (!existingIds.has(w.id)) state.wallets.push(w)
+    }
+  }
+
   return {
     wallets,
     activeWalletId,
     defaultWalletId: computed(getDefaultWalletId),
     addWallet,
+    importWallets,
   }
 }

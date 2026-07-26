@@ -10,6 +10,7 @@ import WalletTabs from './components/WalletTabs.vue'
 import PeopleView from './components/PeopleView.vue'
 import AllActivityView from './components/AllActivityView.vue'
 import TrendsView from './components/TrendsView.vue'
+import UpdateBanner from './components/UpdateBanner.vue'
 import { useSettings } from './composables/useSettings'
 import { useLedger } from './composables/useLedger'
 
@@ -57,6 +58,8 @@ async function handleImportFile(e: Event) {
 </script>
 
 <template>
+  <UpdateBanner />
+
   <AllActivityView v-if="view === 'activity'" @back="view = 'home'" />
   <TrendsView v-else-if="view === 'trends'" @back="view = 'home'" />
 
