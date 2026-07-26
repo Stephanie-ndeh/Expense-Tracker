@@ -2,25 +2,34 @@
 import { computed, ref } from 'vue'
 import { useLedger } from '../composables/useLedger'
 import { useSettings } from '../composables/useSettings'
+import { TYPE_META } from '../types/transaction'
 import type { Transaction } from '../types/transaction'
 import ConfirmDeleteModal from './ConfirmDeleteModal.vue'
 import SwipeRow from './SwipeRow.vue'
 
 const emit = defineEmits<{ back: [] }>()
-const { expensesInRange, removeTransaction } = useLedger()
+const { activityInRange, removeTransaction } = useLedger()
 const { format } = useSettings()
 
 type RangeKey = 'week' | 'month' | 'year' | 'all'
+type KindKey = 'all' | 'spent' | 'received'
+
 const range = ref<RangeKey>('month')
-const tabs: { value: RangeKey; label: string }[] = [
+const kind = ref<KindKey>('all')
+
+const rangeTabs: { value: RangeKey; label: string }[] = [
   { value: 'week', label: 'Week' },
   { value: 'month', label: 'Month' },
   { value: 'year', label: 'Year' },
   { value: 'all', label: 'All' },
 ]
+const kindTabs: { value: KindKey; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'spent', label: 'Spent' },
+  { value: 'received', label: 'Received' },
+]
 
-const list = computed(() => expensesInRange(range.value))
-const total = computed(() => list.value.reduce((s, t) => s + t.amount, 0))
+const list = computed(() => activityInRange(range.value, kind.value))
 
 const pendingDelete = ref<Transaction | null>(null)
 function confirmDelete() {
@@ -44,13 +53,29 @@ function dayLabel(date: string) {
   <div class="min-h-screen pb-10" style="background: var(--ink); color: var(--paper)">
     <header class="flex items-center gap-3 px-5 pt-5 pb-2">
       <button @click="emit('back')" aria-label="Back" class="text-lg leading-none" style="color: var(--paper-dim)">‹</button>
-      <h1 class="text-sm font-semibold">Expenses</h1>
+      <h1 class="text-sm font-semibold">All activity</h1>
     </header>
 
     <div class="px-5 pt-2">
+      <div class="flex gap-2 mb-2">
+        <button
+          v-for="tab in kindTabs"
+          :key="tab.value"
+          @click="kind = tab.value"
+          class="flex-1 text-xs py-2 rounded-lg border"
+          :style="
+            kind === tab.value
+              ? { background: 'var(--paper)', color: 'var(--ink)', borderColor: 'var(--paper)' }
+              : { borderColor: 'var(--ink-line)', color: 'var(--paper-dim)' }
+          "
+        >
+          {{ tab.label }}
+        </button>
+      </div>
+
       <div class="flex gap-2 mb-4">
         <button
-          v-for="tab in tabs"
+          v-for="tab in rangeTabs"
           :key="tab.value"
           @click="range = tab.value"
           class="flex-1 text-xs py-2 rounded-lg border"
@@ -64,18 +89,12 @@ function dayLabel(date: string) {
         </button>
       </div>
 
-      <p class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">
-        Total {{ range === 'all' ? '' : ('this ' + range) }}
-      </p>
-      <p class="font-mono text-3xl font-semibold mt-1 tabular-nums" style="color: var(--money-out)">
-        {{ format(total) }}
-      </p>
-      <p class="text-xs mt-1" style="color: var(--paper-dim)">{{ list.length }} {{ list.length === 1 ? 'entry' : 'entries' }}</p>
+      <p class="text-xs" style="color: var(--paper-dim)">{{ list.length }} {{ list.length === 1 ? 'entry' : 'entries' }}</p>
     </div>
 
-    <div class="px-5 pt-6">
+    <div class="px-5 pt-4">
       <p v-if="!list.length" class="text-sm py-6 text-center" style="color: var(--paper-dim)">
-        No expenses in this period.
+        No activity in this period.
       </p>
       <p v-else class="text-[11px] mb-1" style="color: var(--paper-dim)">Swipe left on an entry to delete it.</p>
       <SwipeRow
@@ -88,9 +107,14 @@ function dayLabel(date: string) {
         <div class="flex items-center justify-between py-2.5">
           <div class="min-w-0">
             <p class="text-sm truncate">{{ t.label }}</p>
-            <p class="text-xs" style="color: var(--paper-dim)">{{ dayLabel(t.date) }}<template v-if="t.note"> · {{ t.note }}</template></p>
+            <p class="text-xs" style="color: var(--paper-dim)">{{ dayLabel(t.date) }} · {{ TYPE_META[t.type].verb }}<template v-if="t.note"> · {{ t.note }}</template></p>
           </div>
-          <span class="font-mono text-sm font-medium tabular-nums shrink-0 pl-3" style="color: var(--money-out)">−{{ format(t.amount) }}</span>
+          <span
+            class="font-mono text-sm font-medium tabular-nums shrink-0 pl-3"
+            :style="{ color: TYPE_META[t.type].sign > 0 ? 'var(--money-in)' : 'var(--money-out)' }"
+          >
+            {{ TYPE_META[t.type].sign > 0 ? '+' : '−' }}{{ format(t.amount) }}
+          </span>
         </div>
       </SwipeRow>
     </div>

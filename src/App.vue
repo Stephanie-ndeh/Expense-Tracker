@@ -4,17 +4,16 @@ import BalanceHero from './components/BalanceHero.vue'
 import SummaryCards from './components/SummaryCards.vue'
 import TrendChart from './components/TrendChart.vue'
 import TransactionFeed from './components/TransactionFeed.vue'
-import RecentExpenses from './components/RecentExpenses.vue'
-import OtherActivity from './components/OtherActivity.vue'
+import RecentActivity from './components/RecentActivity.vue'
 import AddEntry from './components/AddEntry.vue'
 import WalletTabs from './components/WalletTabs.vue'
 import PeopleView from './components/PeopleView.vue'
-import ExpensesView from './components/ExpensesView.vue'
+import AllActivityView from './components/AllActivityView.vue'
 import TrendsView from './components/TrendsView.vue'
 import { useSettings } from './composables/useSettings'
 import { useLedger } from './composables/useLedger'
 
-type View = 'home' | 'expenses' | 'trends'
+type View = 'home' | 'activity' | 'trends'
 const view = ref<View>('home')
 
 const showAdd = ref(false)
@@ -58,7 +57,7 @@ async function handleImportFile(e: Event) {
 </script>
 
 <template>
-  <ExpensesView v-if="view === 'expenses'" @back="view = 'home'" />
+  <AllActivityView v-if="view === 'activity'" @back="view = 'home'" />
   <TrendsView v-else-if="view === 'trends'" @back="view = 'home'" />
 
   <div v-else class="min-h-screen pb-28" style="background: var(--ink); color: var(--paper)">
@@ -72,8 +71,7 @@ async function handleImportFile(e: Event) {
     <SummaryCards @open-people="showPeople = true" />
     <TrendChart @open-trends="view = 'trends'" />
     <TransactionFeed />
-    <RecentExpenses @see-all="view = 'expenses'" />
-    <OtherActivity />
+    <RecentActivity @see-all="view = 'activity'" />
 
     <button
       @click="showAdd = true"
