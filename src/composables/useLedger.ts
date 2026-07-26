@@ -184,16 +184,17 @@ export function useLedger() {
 
   const pastTransactions = computed(() => transactions.value.filter((t) => !t.planned && t.date <= today()))
 
-  // --- Expenses: recent vs full, for home vs dedicated view ---
-  const expenseHistory = computed(() => pastTransactions.value.filter((t) => t.type === 'expense'))
-  const recentExpenses = computed(() => expenseHistory.value.slice(0, 10))
-  const otherActivity = computed(() => pastTransactions.value.filter((t) => t.type !== 'expense'))
+  // --- Recent activity: top few for home, full history for the dedicated view ---
+  const recentActivity = computed(() => pastTransactions.value.slice(0, 5))
 
   type RangeKey = 'week' | 'month' | 'year' | 'all'
-  function expensesInRange(range: RangeKey) {
-    if (range === 'all') return expenseHistory.value
+  type KindKey = 'all' | 'spent' | 'received'
+  function activityInRange(range: RangeKey, kind: KindKey = 'all') {
     const now = new Date()
-    return expenseHistory.value.filter((t) => {
+    return pastTransactions.value.filter((t) => {
+      if (kind === 'spent' && TYPE_META[t.type].sign > 0) return false
+      if (kind === 'received' && TYPE_META[t.type].sign < 0) return false
+      if (range === 'all') return true
       if (range === 'year') return t.date.slice(0, 4) === String(now.getFullYear())
       if (range === 'month') return t.date.slice(0, 7) === today().slice(0, 7)
       const d = new Date(t.date + 'T00:00:00')
@@ -295,10 +296,8 @@ export function useLedger() {
     personSummaries,
     monthlyTrend,
     pastTransactions,
-    expenseHistory,
-    recentExpenses,
-    otherActivity,
-    expensesInRange,
+    recentActivity,
+    activityInRange,
     monthComparison,
     categoryComparison,
     exportData,
