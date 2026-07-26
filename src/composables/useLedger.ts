@@ -1,6 +1,7 @@
 import { computed, reactive, watch } from 'vue'
 import type { Transaction, TransactionType } from '../types/transaction'
 import { TYPE_META } from '../types/transaction'
+import type { Wallet } from '../types/wallet'
 import { getDefaultWalletId, useWallets } from './useWallets'
 
 const STORAGE_KEY = 'ledger.transactions.v1'
@@ -46,7 +47,7 @@ function uid() {
 const today = () => new Date().toISOString().slice(0, 10)
 
 export function useLedger() {
-  const { activeWalletId } = useWallets()
+  const { activeWalletId, wallets, importWallets } = useWallets()
 
   const scopedTransactions = computed(() =>
     activeWalletId.value === 'all'
@@ -261,7 +262,7 @@ export function useLedger() {
 
   function exportData() {
     return JSON.stringify(
-      { exportedAt: new Date().toISOString(), transactions: state.transactions },
+      { exportedAt: new Date().toISOString(), transactions: state.transactions, wallets: wallets.value },
       null,
       2,
     )
@@ -271,14 +272,18 @@ export function useLedger() {
     const parsed = JSON.parse(json)
     const incoming: Transaction[] = Array.isArray(parsed) ? parsed : parsed.transactions
     if (!Array.isArray(incoming)) throw new Error('Invalid file format')
+    const incomingWallets: Wallet[] = Array.isArray(parsed?.wallets) ? parsed.wallets : []
+
     if (mode === 'replace') {
       state.transactions = incoming
+      if (incomingWallets.length) importWallets(incomingWallets, 'replace')
       return
     }
     const existingIds = new Set(state.transactions.map((t) => t.id))
     for (const t of incoming) {
       if (!existingIds.has(t.id)) state.transactions.push(t)
     }
+    if (incomingWallets.length) importWallets(incomingWallets, 'merge')
   }
 
   return {
