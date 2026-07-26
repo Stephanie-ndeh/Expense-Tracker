@@ -40,6 +40,15 @@ export function getDefaultWalletId(): string {
   return state.wallets[0]?.id ?? ''
 }
 
+/** Fired whenever a wallet is added locally, so `useSync.ts` can push it up without a circular import. */
+const mutationListeners: ((wallet: Wallet) => void)[] = []
+export function onWalletMutation(fn: (wallet: Wallet) => void) {
+  mutationListeners.push(fn)
+}
+function notify(wallet: Wallet) {
+  mutationListeners.forEach((fn) => fn(wallet))
+}
+
 export function useWallets() {
   const wallets = computed(() => state.wallets)
 
@@ -49,6 +58,7 @@ export function useWallets() {
     const wallet: Wallet = { id: uid(), name: trimmed, createdAt: Date.now() }
     state.wallets.push(wallet)
     activeWalletId.value = wallet.id
+    notify(wallet)
   }
 
   function importWallets(incoming: Wallet[], mode: 'merge' | 'replace') {
@@ -58,6 +68,21 @@ export function useWallets() {
     }
     const existingIds = new Set(state.wallets.map((w) => w.id))
     for (const w of incoming) {
+      if (!existingIds.has(w.id)) {
+        state.wallets.push(w)
+        notify(w)
+      }
+    }
+  }
+
+  /** Pull-merge from Supabase: add anything new, drop anything tombstoned remotely. No `notify` — would just push it right back. */
+  function applyRemoteWallets(items: Wallet[], deletedIds: string[] = []) {
+    if (deletedIds.length) {
+      const del = new Set(deletedIds)
+      state.wallets = state.wallets.filter((w) => !del.has(w.id))
+    }
+    const existingIds = new Set(state.wallets.map((w) => w.id))
+    for (const w of items) {
       if (!existingIds.has(w.id)) state.wallets.push(w)
     }
   }
@@ -68,5 +93,6 @@ export function useWallets() {
     defaultWalletId: computed(getDefaultWalletId),
     addWallet,
     importWallets,
+    applyRemoteWallets,
   }
 }
