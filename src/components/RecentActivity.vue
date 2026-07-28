@@ -12,9 +12,17 @@ const { recentActivity, pastTransactions, removeTransaction } = useLedger()
 const { format } = useSettings()
 
 const pendingDelete = ref<Transaction | null>(null)
-function confirmDelete() {
-  if (pendingDelete.value) removeTransaction(pendingDelete.value.id)
-  pendingDelete.value = null
+const deleteError = ref('')
+async function confirmDelete() {
+  if (!pendingDelete.value) return
+  const id = pendingDelete.value.id
+  deleteError.value = ''
+  try {
+    await removeTransaction(id)
+    pendingDelete.value = null
+  } catch (e) {
+    deleteError.value = e instanceof Error ? e.message : 'Could not delete this entry.'
+  }
 }
 
 function dayLabel(date: string) {
@@ -68,7 +76,8 @@ function dayLabel(date: string) {
   <ConfirmDeleteModal
     v-if="pendingDelete"
     :transaction="pendingDelete"
-    @cancel="pendingDelete = null"
+    :error="deleteError"
+    @cancel="pendingDelete = null; deleteError = ''"
     @confirm="confirmDelete"
   />
 </template>

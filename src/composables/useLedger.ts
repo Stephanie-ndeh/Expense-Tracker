@@ -1,44 +1,9 @@
-import { computed, reactive, watch } from 'vue'
+import { computed, reactive } from 'vue'
 import type { Transaction, TransactionType } from '../types/transaction'
 import { TYPE_META } from '../types/transaction'
 import type { Wallet } from '../types/wallet'
-import { getDefaultWalletId, useWallets } from './useWallets'
-
-const STORAGE_KEY = 'ledger.transactions.v1'
-
-function load(): Transaction[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw) as Transaction[]
-    if (!Array.isArray(parsed)) return []
-
-    // Migration: transactions saved before multi-wallet support have no walletId.
-    const defaultWalletId = getDefaultWalletId()
-    let migrated = false
-    const result = parsed.map((t) => {
-      if (t.walletId) return t
-      migrated = true
-      return { ...t, walletId: defaultWalletId }
-    })
-    if (migrated) localStorage.setItem(STORAGE_KEY, JSON.stringify(result))
-    return result
-  } catch {
-    return []
-  }
-}
-
-const state = reactive({
-  transactions: load(),
-})
-
-watch(
-  () => state.transactions,
-  (val) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(val))
-  },
-  { deep: true },
-)
+import { useWallets } from './useWallets'
+import { supabase } from '../lib/supabaseClient'
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
@@ -46,15 +11,56 @@ function uid() {
 
 const today = () => new Date().toISOString().slice(0, 10)
 
-/** Fired on every local add/update/delete, so `useSync.ts` can push it up without a circular import. */
-type MutationEvent = { kind: 'upsert'; transaction: Transaction } | { kind: 'delete'; id: string }
-const mutationListeners: ((e: MutationEvent) => void)[] = []
-export function onLedgerMutation(fn: (e: MutationEvent) => void) {
-  mutationListeners.push(fn)
+type TransactionRow = {
+  id: string
+  wallet_id: string
+  type: string
+  amount: number | string
+  date: string
+  note: string
+  label: string
+  planned: boolean
+  created_at: number | string
 }
-function notify(e: MutationEvent) {
-  mutationListeners.forEach((fn) => fn(e))
+
+export function rowToTransaction(r: TransactionRow): Transaction {
+  return {
+    id: r.id,
+    walletId: r.wallet_id,
+    type: r.type as TransactionType,
+    amount: Number(r.amount),
+    date: r.date,
+    note: r.note,
+    label: r.label,
+    planned: r.planned,
+    createdAt: Number(r.created_at),
+  }
 }
+
+function transactionToRow(t: Transaction, userId: string) {
+  return {
+    id: t.id,
+    user_id: userId,
+    wallet_id: t.walletId,
+    type: t.type,
+    amount: t.amount,
+    date: t.date,
+    note: t.note,
+    label: t.label,
+    planned: t.planned,
+    created_at: t.createdAt,
+  }
+}
+
+async function getUserId(): Promise<string | null> {
+  if (!supabase) return null
+  const { data } = await supabase.auth.getUser()
+  return data.user?.id ?? null
+}
+
+const state = reactive({
+  transactions: [] as Transaction[],
+})
 
 export function useLedger() {
   const { activeWalletId, wallets, importWallets } = useWallets()
@@ -122,7 +128,7 @@ export function useLedger() {
       .reduce((s, t) => s + t.amount, 0)
   })
 
-  function addTransaction(input: {
+  async function addTransaction(input: {
     type: TransactionType
     amount: number
     date: string
@@ -131,29 +137,30 @@ export function useLedger() {
     planned: boolean
     walletId: string
   }) {
-    const t: Transaction = {
-      id: uid(),
-      createdAt: Date.now(),
-      ...input,
-    }
+    if (!supabase) throw new Error('Supabase is not configured')
+    const userId = await getUserId()
+    if (!userId) throw new Error('Not signed in')
+
+    const t: Transaction = { id: uid(), createdAt: Date.now(), ...input }
+    const { error } = await supabase.from('transactions').insert(transactionToRow(t, userId))
+    if (error) throw error
     state.transactions.push(t)
-    notify({ kind: 'upsert', transaction: t })
   }
 
-  function removeTransaction(id: string) {
+  async function removeTransaction(id: string) {
+    if (!supabase) throw new Error('Supabase is not configured')
+    const { error } = await supabase.from('transactions').delete().eq('id', id)
+    if (error) throw error
     const idx = state.transactions.findIndex((t) => t.id === id)
-    if (idx !== -1) {
-      state.transactions.splice(idx, 1)
-      notify({ kind: 'delete', id })
-    }
+    if (idx !== -1) state.transactions.splice(idx, 1)
   }
 
-  function markSettled(id: string) {
+  async function markSettled(id: string) {
+    if (!supabase) throw new Error('Supabase is not configured')
+    const { error } = await supabase.from('transactions').update({ planned: false }).eq('id', id)
+    if (error) throw error
     const t = state.transactions.find((t) => t.id === id)
-    if (t) {
-      t.planned = false
-      notify({ kind: 'upsert', transaction: t })
-    }
+    if (t) t.planned = false
   }
 
   // --- Per-person lending view ---
@@ -277,7 +284,6 @@ export function useLedger() {
     return rows.sort((a, b) => b.current - a.current)
   })
 
-
   function exportData() {
     return JSON.stringify(
       { exportedAt: new Date().toISOString(), transactions: state.transactions, wallets: wallets.value },
@@ -286,37 +292,40 @@ export function useLedger() {
     )
   }
 
-  function importData(json: string, mode: 'merge' | 'replace' = 'merge') {
+  async function importData(json: string) {
+    if (!supabase) throw new Error('Supabase is not configured')
+    const userId = await getUserId()
+    if (!userId) throw new Error('Not signed in')
+
     const parsed = JSON.parse(json)
     const incoming: Transaction[] = Array.isArray(parsed) ? parsed : parsed.transactions
     if (!Array.isArray(incoming)) throw new Error('Invalid file format')
     const incomingWallets: Wallet[] = Array.isArray(parsed?.wallets) ? parsed.wallets : []
 
-    if (mode === 'replace') {
-      state.transactions = incoming
-      if (incomingWallets.length) importWallets(incomingWallets, 'replace')
-      return
-    }
+    if (incomingWallets.length) await importWallets(incomingWallets)
+
     const existingIds = new Set(state.transactions.map((t) => t.id))
+    let failures = 0
     for (const t of incoming) {
-      if (!existingIds.has(t.id)) {
-        state.transactions.push(t)
-        notify({ kind: 'upsert', transaction: t })
+      if (existingIds.has(t.id)) continue
+      const { error } = await supabase.from('transactions').insert(transactionToRow(t, userId))
+      if (error) {
+        failures++
+        continue
       }
+      state.transactions.push(t)
+      existingIds.add(t.id)
     }
-    if (incomingWallets.length) importWallets(incomingWallets, 'merge')
+    if (failures) throw new Error(`Imported with ${failures} entr${failures === 1 ? 'y' : 'ies'} skipped.`)
   }
 
-  /** Pull-merge from Supabase: add anything new, drop anything tombstoned remotely. No `notify` — would just push it right back. */
-  function applyRemoteTransactions(items: Transaction[], deletedIds: string[] = []) {
-    if (deletedIds.length) {
-      const del = new Set(deletedIds)
-      state.transactions = state.transactions.filter((t) => !del.has(t.id))
-    }
-    const existingIds = new Set(state.transactions.map((t) => t.id))
-    for (const t of items) {
-      if (!existingIds.has(t.id)) state.transactions.push(t)
-    }
+  /** Authoritative overwrite from Supabase — the server is the only source of truth, so no merge. */
+  function replaceTransactions(items: Transaction[]) {
+    state.transactions = items
+  }
+
+  function clearTransactions() {
+    state.transactions = []
   }
 
   return {
@@ -340,7 +349,7 @@ export function useLedger() {
     categoryComparison,
     exportData,
     importData,
-    applyRemoteTransactions,
-    rawTransactions: computed(() => state.transactions),
+    replaceTransactions,
+    clearTransactions,
   }
 }

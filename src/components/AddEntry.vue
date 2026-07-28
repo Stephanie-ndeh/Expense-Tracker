@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import type { TransactionType } from '../types/transaction'
 import { TYPE_META } from '../types/transaction'
 import { useLedger } from '../composables/useLedger'
@@ -46,7 +46,10 @@ watch(
   },
 )
 
-function submit() {
+const submitting = ref(false)
+const submitError = ref('')
+
+async function submit() {
   const amount = parseFloat(form.amount)
   if (!amount || amount <= 0) return
   if ((form.type === 'expense' || form.type === 'income' || form.type === 'repay') && !form.label) return
@@ -58,16 +61,24 @@ function submit() {
         : form.label
       : form.label.trim() || TYPE_META[form.type].labelHint
 
-  addTransaction({
-    type: form.type,
-    amount,
-    label,
-    note: form.note.trim(),
-    date: form.date,
-    planned: form.planned || form.date > today,
-    walletId: form.walletId,
-  })
-  emit('close')
+  submitError.value = ''
+  submitting.value = true
+  try {
+    await addTransaction({
+      type: form.type,
+      amount,
+      label,
+      note: form.note.trim(),
+      date: form.date,
+      planned: form.planned || form.date > today,
+      walletId: form.walletId,
+    })
+    emit('close')
+  } catch (e) {
+    submitError.value = e instanceof Error ? e.message : 'Could not save this entry.'
+  } finally {
+    submitting.value = false
+  }
 }
 </script>
 
@@ -203,12 +214,15 @@ function submit() {
         </label>
       </div>
 
+      <p v-if="submitError" class="text-xs mb-3" style="color: var(--money-out)">{{ submitError }}</p>
+
       <button
         type="submit"
-        class="w-full py-3 rounded-xl font-medium text-sm"
+        :disabled="submitting"
+        class="w-full py-3 rounded-xl font-medium text-sm disabled:opacity-50"
         style="background: var(--accent); color: var(--ink)"
       >
-        Save entry
+        {{ submitting ? 'Saving…' : 'Save entry' }}
       </button>
     </form>
   </div>

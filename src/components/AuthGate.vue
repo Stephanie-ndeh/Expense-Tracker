@@ -34,7 +34,7 @@ async function submit() {
 <template>
   <div class="min-h-screen flex items-center justify-center px-6" style="background: var(--ink); color: var(--paper)">
     <div class="w-full max-w-xs">
-      <h1 class="text-lg font-semibold mb-1">Big Steph</h1>
+      <h1 class="text-lg font-semibold mb-1">Reckon</h1>
       <p class="text-xs mb-6" style="color: var(--paper-dim)">
         {{ mode === 'signin' ? 'Sign in to sync your ledger.' : 'Create an account to sync your ledger.' }}
       </p>

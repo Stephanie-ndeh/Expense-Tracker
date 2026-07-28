@@ -45,7 +45,7 @@ function downloadBackup() {
   const a = document.createElement('a')
   const stamp = new Date().toISOString().slice(0, 10)
   a.href = url
-  a.download = `big-steph-ledger-backup-${stamp}.json`
+  a.download = `reckon-backup-${stamp}.json`
   a.click()
   URL.revokeObjectURL(url)
 }
@@ -60,10 +60,10 @@ async function handleImportFile(e: Event) {
   if (!file) return
   try {
     const text = await file.text()
-    importData(text, 'merge')
+    await importData(text)
     importMessage.value = 'Backup imported.'
-  } catch {
-    importMessage.value = "Couldn't read that file — is it a Ledger backup?"
+  } catch (err) {
+    importMessage.value = err instanceof Error ? err.message : "Couldn't read that file — is it a backup?"
   } finally {
     if (importFile.value) importFile.value.value = ''
   }
@@ -81,7 +81,7 @@ async function handleImportFile(e: Event) {
 
   <div v-else class="min-h-screen pb-28" style="background: var(--ink); color: var(--paper)">
     <header class="flex items-center justify-between px-5 pt-5">
-      <p class="text-sm font-semibold tracking-tight">Big Steph</p>
+      <p class="text-sm font-semibold tracking-tight">Reckon</p>
       <button @click="showSettings = true" class="text-xs" style="color: var(--paper-dim)">{{ settings.currency }} ⚙</button>
     </header>
 
