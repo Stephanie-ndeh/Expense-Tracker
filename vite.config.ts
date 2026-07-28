@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg'],
       manifest: {
-        name: 'Big Steph',
-        short_name: 'Big Steph',
+        name: 'Reckon',
+        short_name: 'Reckon',
         description: 'A quiet, honest ledger for your money.',
         theme_color: '#12151c',
         background_color: '#12151c',

@@ -2,7 +2,7 @@
 import { useSettings } from '../composables/useSettings'
 import type { Transaction } from '../types/transaction'
 
-defineProps<{ transaction: Transaction }>()
+defineProps<{ transaction: Transaction; error?: string }>()
 const emit = defineEmits<{ confirm: []; cancel: [] }>()
 const { format } = useSettings()
 </script>
@@ -15,6 +15,7 @@ const { format } = useSettings()
       <p class="text-sm mb-4" style="color: var(--paper-dim)">
         "{{ transaction.label }}" · {{ format(transaction.amount) }} — this can't be undone.
       </p>
+      <p v-if="error" class="text-xs mb-4" style="color: var(--money-out)">{{ error }}</p>
       <div class="flex gap-2">
         <button
           @click="emit('cancel')"
