@@ -59,13 +59,13 @@ async function confirmDeleteWallet() {
   <div class="px-5 pt-3">
     <div class="flex gap-2 overflow-x-auto" style="scrollbar-width: none">
       <button
-        @click="activeWalletId = 'all'"
         class="shrink-0 text-xs px-3 py-1.5 rounded-full border whitespace-nowrap"
         :style="
           activeWalletId === 'all'
             ? { background: 'var(--paper)', color: 'var(--ink)', borderColor: 'var(--paper)' }
             : { borderColor: 'var(--ink-line)', color: 'var(--paper-dim)' }
         "
+        @click="activeWalletId = 'all'"
       >
         All
       </button>
@@ -79,23 +79,23 @@ async function confirmDeleteWallet() {
             : { borderColor: 'var(--ink-line)', color: 'var(--paper-dim)' }
         "
       >
-        <button @click="activeWalletId = w.id" class="text-xs pl-3 py-1.5" :class="w.isDefault ? 'pr-3' : 'pr-1'">
+        <button class="text-xs pl-3 py-1.5" :class="w.isDefault ? 'pr-3' : 'pr-1'" @click="activeWalletId = w.id">
           {{ w.name }}
         </button>
         <button
           v-if="!w.isDefault"
-          @click="openDeleteWallet(w)"
           aria-label="Delete wallet"
           class="text-xs w-6 h-6 flex items-center justify-center shrink-0 opacity-70"
+          @click="openDeleteWallet(w)"
         >
           ×
         </button>
       </div>
       <button
-        @click="openAddWallet"
         aria-label="Add wallet"
         class="shrink-0 text-xs w-7 h-7 flex items-center justify-center rounded-full border"
         style="border-color: var(--ink-line); color: var(--paper-dim)"
+        @click="openAddWallet"
       >
         +
       </button>
@@ -123,17 +123,17 @@ async function confirmDeleteWallet() {
 
         <div class="flex gap-2">
           <button
-            @click="showAddWallet = false"
             class="flex-1 py-2 rounded-lg text-xs font-medium border"
             style="border-color: var(--ink-line); color: var(--paper)"
+            @click="showAddWallet = false"
           >
             Cancel
           </button>
           <button
-            @click="confirmAddWallet"
             :disabled="adding"
             class="flex-1 py-2 rounded-lg text-xs font-medium disabled:opacity-50"
             style="background: var(--accent); color: var(--ink)"
+            @click="confirmAddWallet"
           >
             {{ adding ? 'Adding…' : 'Add wallet' }}
           </button>
@@ -151,17 +151,17 @@ async function confirmDeleteWallet() {
 
         <div class="flex gap-2">
           <button
-            @click="pendingDelete = null"
             class="flex-1 py-2.5 rounded-xl text-sm font-medium border"
             style="border-color: var(--ink-line); color: var(--paper)"
+            @click="pendingDelete = null"
           >
             Cancel
           </button>
           <button
-            @click="confirmDeleteWallet"
             :disabled="deleting"
             class="flex-1 py-2.5 rounded-xl text-sm font-medium disabled:opacity-50"
             style="background: var(--money-out); color: var(--ink)"
+            @click="confirmDeleteWallet"
           >
             {{ deleting ? 'Deleting…' : 'Delete' }}
           </button>

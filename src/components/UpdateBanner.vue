@@ -19,9 +19,9 @@ const { needRefresh, updateServiceWorker } = useRegisterSW({
   >
     <p class="text-xs" style="color: var(--paper)">A new version is ready.</p>
     <button
-      @click="updateServiceWorker(true)"
       class="text-xs font-medium px-3 py-1.5 rounded-lg shrink-0"
       style="background: var(--accent); color: var(--ink)"
+      @click="updateServiceWorker(true)"
     >
       Reload
     </button>

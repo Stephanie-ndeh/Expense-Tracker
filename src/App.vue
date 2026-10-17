@@ -24,7 +24,7 @@ const showAdd = ref(false)
 const showSettings = ref(false)
 const showPeople = ref(false)
 const { settings } = useSettings()
-const { exportData, importData } = useLedger()
+const { exportData, exportCsv, importData } = useLedger()
 const { enabled: syncEnabled, loading: authLoading, isAuthenticated, userEmail, signOut } = useAuth()
 const { syncing, lastSyncedAt, error: syncError, syncNow } = useSync()
 
@@ -39,15 +39,24 @@ function lastSyncedLabel() {
 const importFile = ref<HTMLInputElement | null>(null)
 const importMessage = ref('')
 
-function downloadBackup() {
-  const blob = new Blob([exportData()], { type: 'application/json' })
+function downloadBlob(content: string, mime: string, filename: string) {
+  const blob = new Blob([content], { type: mime })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
-  const stamp = new Date().toISOString().slice(0, 10)
   a.href = url
-  a.download = `reckon-backup-${stamp}.json`
+  a.download = filename
   a.click()
   URL.revokeObjectURL(url)
+}
+
+function downloadCsv() {
+  const stamp = new Date().toISOString().slice(0, 10)
+  downloadBlob(exportCsv(), 'text/csv', `reckon-backup-${stamp}.csv`)
+}
+
+function downloadBackup() {
+  const stamp = new Date().toISOString().slice(0, 10)
+  downloadBlob(exportData(), 'application/json', `reckon-backup-${stamp}.json`)
 }
 
 function triggerImport() {
@@ -82,7 +91,9 @@ async function handleImportFile(e: Event) {
   <div v-else class="min-h-screen pb-28" style="background: var(--ink); color: var(--paper)">
     <header class="flex items-center justify-between px-5 pt-5">
       <p class="text-sm font-semibold tracking-tight">Reckon</p>
-      <button @click="showSettings = true" class="text-xs" style="color: var(--paper-dim)">{{ settings.currency }} ⚙</button>
+      <button class="text-xs" style="color: var(--paper-dim)" @click="showSettings = true">
+        {{ settings.currency }} ⚙
+      </button>
     </header>
 
     <WalletTabs />
@@ -93,9 +104,9 @@ async function handleImportFile(e: Event) {
     <RecentActivity @see-all="view = 'activity'" />
 
     <button
-      @click="showAdd = true"
       class="fixed bottom-6 left-1/2 -translate-x-1/2 px-6 py-3.5 rounded-full font-medium text-sm shadow-lg"
       style="background: var(--accent); color: var(--ink)"
+      @click="showAdd = true"
     >
       + Add entry
     </button>
@@ -126,17 +137,17 @@ async function handleImportFile(e: Event) {
           </p>
           <div class="flex gap-2 mt-3">
             <button
-              @click="syncNow"
               :disabled="syncing"
               class="flex-1 py-2 rounded-lg text-xs font-medium border disabled:opacity-50"
               style="border-color: var(--ink-line); color: var(--paper)"
+              @click="syncNow"
             >
               Sync now
             </button>
             <button
-              @click="signOut"
               class="flex-1 py-2 rounded-lg text-xs font-medium border"
               style="border-color: var(--ink-line); color: var(--paper)"
+              @click="signOut"
             >
               Sign out
             </button>
@@ -146,29 +157,50 @@ async function handleImportFile(e: Event) {
         <div class="border-t pt-4 mt-4" style="border-color: var(--ink-line)">
           <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Backup</span>
           <p class="text-xs mt-1 mb-3" style="color: var(--paper-dim)">
-            {{ syncEnabled ? 'Your data syncs to your account, but a local export is still a good habit before switching devices.' : 'Your data only lives on this device. Export it now and then so you never lose it.' }}
+            {{
+              syncEnabled
+                ? 'Your data syncs to your account, but a local export is still a good habit before switching devices.'
+                : 'Your data only lives on this device. Export it now and then so you never lose it.'
+            }}
           </p>
-          <div class="flex gap-2">
-            <button
-              @click="downloadBackup"
-              class="flex-1 py-2 rounded-lg text-xs font-medium border"
-              style="border-color: var(--ink-line); color: var(--paper)"
-            >
-              Export backup
-            </button>
-            <button
-              @click="triggerImport"
-              class="flex-1 py-2 rounded-lg text-xs font-medium border"
-              style="border-color: var(--ink-line); color: var(--paper)"
-            >
-              Import backup
-            </button>
-          </div>
+          <button
+            class="w-full py-2 rounded-lg text-xs font-medium border"
+            style="border-color: var(--ink-line); color: var(--paper)"
+            @click="downloadCsv"
+          >
+            Export backup (CSV)
+          </button>
+
+          <details class="mt-3">
+            <summary class="text-xs cursor-pointer select-none" style="color: var(--paper-dim)">Advanced</summary>
+            <div class="flex gap-2 mt-2">
+              <button
+                class="flex-1 py-2 rounded-lg text-xs font-medium border"
+                style="border-color: var(--ink-line); color: var(--paper)"
+                @click="downloadBackup"
+              >
+                Export JSON
+              </button>
+              <button
+                class="flex-1 py-2 rounded-lg text-xs font-medium border"
+                style="border-color: var(--ink-line); color: var(--paper)"
+                @click="triggerImport"
+              >
+                Import JSON
+              </button>
+            </div>
+          </details>
           <input ref="importFile" type="file" accept="application/json" class="hidden" @change="handleImportFile" />
           <p v-if="importMessage" class="text-xs mt-2" style="color: var(--accent)">{{ importMessage }}</p>
         </div>
 
-        <button @click="showSettings = false" class="w-full mt-5 py-2.5 rounded-xl text-sm font-medium" style="background: var(--accent); color: var(--ink)">Done</button>
+        <button
+          class="w-full mt-5 py-2.5 rounded-xl text-sm font-medium"
+          style="background: var(--accent); color: var(--ink)"
+          @click="showSettings = false"
+        >
+          Done
+        </button>
       </div>
     </div>
   </div>

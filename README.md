@@ -38,4 +38,4 @@ npm run preview   # test the production build locally
 
 - Currency is just a label (defaults to FCFA) — tap it top-right to change it to whatever you use.
 - Deleting an entry asks for confirmation first — it can't be undone.
-- Data lives in Supabase (Postgres), scoped to your account by Row Level Security — see `supabase/schema.sql` for the schema to run once in a new project, and set `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` in `.env.local` (copy `.env.local.example`). Export/import a JSON backup any time from Settings.
+- Data lives in Supabase (Postgres), scoped to your account by Row Level Security — see `supabase/schema.sql` for the schema to run once in a new project, and set `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` in `.env.local` (copy `.env.local.example`). Export a CSV backup any time from Settings; JSON export/import (for restoring into the app) is under "Advanced".

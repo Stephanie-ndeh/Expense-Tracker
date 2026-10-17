@@ -72,7 +72,9 @@ export function useLedger() {
   )
 
   const transactions = computed(() =>
-    [...scopedTransactions.value].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.createdAt - a.createdAt)),
+    [...scopedTransactions.value].sort((a, b) =>
+      a.date < b.date ? 1 : a.date > b.date ? -1 : b.createdAt - a.createdAt,
+    ),
   )
 
   const settled = computed(() => scopedTransactions.value.filter((t) => !t.planned && t.date <= today()))
@@ -86,22 +88,15 @@ export function useLedger() {
     return TYPE_META[t.type].sign * t.amount
   }
 
-  const balance = computed(() =>
-    settled.value
-      .filter((t) => TYPE_META[t.type].group === 'cash')
-      .reduce((sum, t) => sum + signedAmount(t), 0) -
-    settled.value
-      .filter((t) => TYPE_META[t.type].group === 'savings')
-      .reduce((sum, t) => sum + signedAmount(t), 0) +
-    settled.value
-      .filter((t) => TYPE_META[t.type].group === 'lending')
-      .reduce((sum, t) => sum + signedAmount(t), 0),
+  const balance = computed(
+    () =>
+      settled.value.filter((t) => TYPE_META[t.type].group === 'cash').reduce((sum, t) => sum + signedAmount(t), 0) -
+      settled.value.filter((t) => TYPE_META[t.type].group === 'savings').reduce((sum, t) => sum + signedAmount(t), 0) +
+      settled.value.filter((t) => TYPE_META[t.type].group === 'lending').reduce((sum, t) => sum + signedAmount(t), 0),
   )
 
   const savings = computed(() =>
-    settled.value
-      .filter((t) => TYPE_META[t.type].group === 'savings')
-      .reduce((sum, t) => sum + signedAmount(t), 0),
+    settled.value.filter((t) => TYPE_META[t.type].group === 'savings').reduce((sum, t) => sum + signedAmount(t), 0),
   )
 
   const owedToYou = computed(() => {
@@ -113,9 +108,7 @@ export function useLedger() {
     return perPerson
   })
 
-  const totalOwedToYou = computed(() =>
-    Array.from(owedToYou.value.values()).reduce((s, v) => s + Math.max(v, 0), 0),
-  )
+  const totalOwedToYou = computed(() => Array.from(owedToYou.value.values()).reduce((s, v) => s + Math.max(v, 0), 0))
 
   const plannedSpend = computed(() =>
     upcoming.value.filter((t) => t.type === 'expense' || t.type === 'lend').reduce((s, t) => s + t.amount, 0),
@@ -292,6 +285,25 @@ export function useLedger() {
     )
   }
 
+  function csvCell(value: string | number) {
+    const s = String(value)
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+  }
+
+  function exportCsv() {
+    const walletName = (id: string) => wallets.value.find((w) => w.id === id)?.name ?? id
+    const header = ['date', 'type', 'wallet', 'label', 'note', 'amount', 'planned']
+    const rows = state.transactions
+      .slice()
+      .sort((a, b) => a.date.localeCompare(b.date) || a.createdAt - b.createdAt)
+      .map((t) =>
+        [t.date, t.type, walletName(t.walletId), t.label, t.note, t.amount, t.planned ? 'yes' : 'no']
+          .map(csvCell)
+          .join(','),
+      )
+    return [header.join(','), ...rows].join('\n')
+  }
+
   async function importData(json: string) {
     if (!supabase) throw new Error('Supabase is not configured')
     const userId = await getUserId()
@@ -348,6 +360,7 @@ export function useLedger() {
     monthComparison,
     categoryComparison,
     exportData,
+    exportCsv,
     importData,
     replaceTransactions,
     clearTransactions,

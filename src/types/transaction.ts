@@ -1,10 +1,4 @@
-export type TransactionType =
-  | 'expense'
-  | 'income'
-  | 'lend'
-  | 'repay'
-  | 'save'
-  | 'withdraw'
+export type TransactionType = 'expense' | 'income' | 'lend' | 'repay' | 'save' | 'withdraw'
 
 export interface Transaction {
   id: string

@@ -33,6 +33,11 @@ const list = computed(() => activityInRange(range.value, kind.value))
 
 const pendingDelete = ref<Transaction | null>(null)
 const deleteError = ref('')
+function cancelDelete() {
+  pendingDelete.value = null
+  deleteError.value = ''
+}
+
 async function confirmDelete() {
   if (!pendingDelete.value) return
   const id = pendingDelete.value.id
@@ -53,14 +58,20 @@ function dayLabel(date: string) {
   const fmt = (x: Date) => x.toISOString().slice(0, 10)
   if (fmt(d) === fmt(today)) return 'Today'
   if (fmt(d) === fmt(yesterday)) return 'Yesterday'
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined })
+  return d.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
+  })
 }
 </script>
 
 <template>
   <div class="min-h-screen pb-10" style="background: var(--ink); color: var(--paper)">
     <header class="flex items-center gap-3 px-5 pt-5 pb-2">
-      <button @click="emit('back')" aria-label="Back" class="text-lg leading-none" style="color: var(--paper-dim)">‹</button>
+      <button aria-label="Back" class="text-lg leading-none" style="color: var(--paper-dim)" @click="emit('back')">
+        ‹
+      </button>
       <h1 class="text-sm font-semibold">All activity</h1>
     </header>
 
@@ -69,13 +80,13 @@ function dayLabel(date: string) {
         <button
           v-for="tab in kindTabs"
           :key="tab.value"
-          @click="kind = tab.value"
           class="flex-1 text-xs py-2 rounded-lg border"
           :style="
             kind === tab.value
               ? { background: 'var(--paper)', color: 'var(--ink)', borderColor: 'var(--paper)' }
               : { borderColor: 'var(--ink-line)', color: 'var(--paper-dim)' }
           "
+          @click="kind = tab.value"
         >
           {{ tab.label }}
         </button>
@@ -85,19 +96,21 @@ function dayLabel(date: string) {
         <button
           v-for="tab in rangeTabs"
           :key="tab.value"
-          @click="range = tab.value"
           class="flex-1 text-xs py-2 rounded-lg border"
           :style="
             range === tab.value
               ? { background: 'var(--paper)', color: 'var(--ink)', borderColor: 'var(--paper)' }
               : { borderColor: 'var(--ink-line)', color: 'var(--paper-dim)' }
           "
+          @click="range = tab.value"
         >
           {{ tab.label }}
         </button>
       </div>
 
-      <p class="text-xs" style="color: var(--paper-dim)">{{ list.length }} {{ list.length === 1 ? 'entry' : 'entries' }}</p>
+      <p class="text-xs" style="color: var(--paper-dim)">
+        {{ list.length }} {{ list.length === 1 ? 'entry' : 'entries' }}
+      </p>
     </div>
 
     <div class="px-5 pt-4">
@@ -115,7 +128,9 @@ function dayLabel(date: string) {
         <div class="flex items-center justify-between py-2.5">
           <div class="min-w-0">
             <p class="text-sm truncate">{{ t.label }}</p>
-            <p class="text-xs" style="color: var(--paper-dim)">{{ dayLabel(t.date) }} · {{ TYPE_META[t.type].verb }}<template v-if="t.note"> · {{ t.note }}</template></p>
+            <p class="text-xs" style="color: var(--paper-dim)">
+              {{ dayLabel(t.date) }} · {{ TYPE_META[t.type].verb }}<template v-if="t.note"> · {{ t.note }}</template>
+            </p>
           </div>
           <span
             class="font-mono text-sm font-medium tabular-nums shrink-0 pl-3"
@@ -131,7 +146,7 @@ function dayLabel(date: string) {
       v-if="pendingDelete"
       :transaction="pendingDelete"
       :error="deleteError"
-      @cancel="pendingDelete = null; deleteError = ''"
+      @cancel="cancelDelete"
       @confirm="confirmDelete"
     />
   </div>

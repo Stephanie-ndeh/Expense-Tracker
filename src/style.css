@@ -1,5 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
-@import "tailwindcss";
+@import 'tailwindcss';
 
 :root {
   --ink: #12151c;
@@ -32,6 +32,7 @@ body {
   color: var(--ink);
 }
 
-input, select {
+input,
+select {
   color-scheme: dark;
 }

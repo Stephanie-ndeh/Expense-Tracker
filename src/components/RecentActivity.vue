@@ -13,6 +13,11 @@ const { format } = useSettings()
 
 const pendingDelete = ref<Transaction | null>(null)
 const deleteError = ref('')
+function cancelDelete() {
+  pendingDelete.value = null
+  deleteError.value = ''
+}
+
 async function confirmDelete() {
   if (!pendingDelete.value) return
   const id = pendingDelete.value.id
@@ -33,7 +38,11 @@ function dayLabel(date: string) {
   const fmt = (x: Date) => x.toISOString().slice(0, 10)
   if (fmt(d) === fmt(today)) return 'Today'
   if (fmt(d) === fmt(yesterday)) return 'Yesterday'
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined })
+  return d.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
+  })
 }
 </script>
 
@@ -41,7 +50,7 @@ function dayLabel(date: string) {
   <div class="px-5 pt-6 pb-2">
     <div class="flex items-center justify-between mb-2">
       <h3 class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Recent activity</h3>
-      <button v-if="pastTransactions.length > 5" @click="emit('seeAll')" class="text-xs" style="color: var(--accent)">
+      <button v-if="pastTransactions.length > 5" class="text-xs" style="color: var(--accent)" @click="emit('seeAll')">
         See all ({{ pastTransactions.length }}) ›
       </button>
     </div>
@@ -61,7 +70,9 @@ function dayLabel(date: string) {
       <div class="flex items-center justify-between py-2.5">
         <div class="min-w-0">
           <p class="text-sm truncate">{{ t.label }}</p>
-          <p class="text-xs" style="color: var(--paper-dim)">{{ dayLabel(t.date) }} · {{ TYPE_META[t.type].verb }}<template v-if="t.note"> · {{ t.note }}</template></p>
+          <p class="text-xs" style="color: var(--paper-dim)">
+            {{ dayLabel(t.date) }} · {{ TYPE_META[t.type].verb }}<template v-if="t.note"> · {{ t.note }}</template>
+          </p>
         </div>
         <span
           class="font-mono text-sm font-medium tabular-nums shrink-0 pl-3"
@@ -77,7 +88,7 @@ function dayLabel(date: string) {
     v-if="pendingDelete"
     :transaction="pendingDelete"
     :error="deleteError"
-    @cancel="pendingDelete = null; deleteError = ''"
+    @cancel="cancelDelete"
     @confirm="confirmDelete"
   />
 </template>
