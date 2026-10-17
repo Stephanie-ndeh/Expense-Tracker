@@ -24,6 +24,8 @@ const types: { value: TransactionType; label: string }[] = [
   { value: 'repay', label: 'Paid back' },
   { value: 'save', label: 'Saved' },
   { value: 'withdraw', label: 'From savings' },
+  { value: 'transfer_out', label: 'Transferred out' },
+  { value: 'transfer_in', label: 'Transferred in' },
 ]
 
 const labelOptions = computed(() => {
