@@ -91,11 +91,11 @@ export function useLedger() {
       .sort((a, b) => (counts.get(b.id) ?? 0) - (counts.get(a.id) ?? 0))
   }
 
-  /** People used in lend/repay entries, most-used-first (ties keep the people table's order). */
+  /** People used in lend/repay/borrow/payback entries, most-used-first (ties keep the people table's order). */
   function suggestedPeople() {
     const counts = new Map<string, number>()
     for (const t of state.transactions) {
-      if (t.personId && (t.type === 'lend' || t.type === 'repay')) {
+      if (t.personId && (t.type === 'lend' || t.type === 'repay' || t.type === 'borrow' || t.type === 'payback')) {
         counts.set(t.personId, (counts.get(t.personId) ?? 0) + 1)
       }
     }
@@ -130,7 +130,8 @@ export function useLedger() {
       settled.value.filter((t) => TYPE_META[t.type].group === 'cash').reduce((sum, t) => sum + signedAmount(t), 0) -
       settled.value.filter((t) => TYPE_META[t.type].group === 'savings').reduce((sum, t) => sum + signedAmount(t), 0) +
       settled.value.filter((t) => TYPE_META[t.type].group === 'lending').reduce((sum, t) => sum + signedAmount(t), 0) +
-      settled.value.filter((t) => TYPE_META[t.type].group === 'transfer').reduce((sum, t) => sum + signedAmount(t), 0),
+      settled.value.filter((t) => TYPE_META[t.type].group === 'transfer').reduce((sum, t) => sum + signedAmount(t), 0) +
+      settled.value.filter((t) => TYPE_META[t.type].group === 'debt').reduce((sum, t) => sum + signedAmount(t), 0),
   )
 
   const savings = computed(() =>
@@ -148,8 +149,21 @@ export function useLedger() {
 
   const totalOwedToYou = computed(() => Array.from(owedToYou.value.values()).reduce((s, v) => s + Math.max(v, 0), 0))
 
+  const owedByYou = computed(() => {
+    const perPerson = new Map<string, number>()
+    for (const t of settled.value) {
+      if (t.type === 'borrow') perPerson.set(t.label, (perPerson.get(t.label) ?? 0) + t.amount)
+      if (t.type === 'payback') perPerson.set(t.label, (perPerson.get(t.label) ?? 0) - t.amount)
+    }
+    return perPerson
+  })
+
+  const totalOwedByYou = computed(() => Array.from(owedByYou.value.values()).reduce((s, v) => s + Math.max(v, 0), 0))
+
   const plannedSpend = computed(() =>
-    upcoming.value.filter((t) => t.type === 'expense' || t.type === 'lend').reduce((s, t) => s + t.amount, 0),
+    upcoming.value
+      .filter((t) => t.type === 'expense' || t.type === 'lend' || t.type === 'payback')
+      .reduce((s, t) => s + t.amount, 0),
   )
 
   const thisMonthSpend = computed(() => {
@@ -325,11 +339,11 @@ export function useLedger() {
     }
   }
 
-  // --- Per-person lending view ---
+  // --- Per-person lending/debt view ---
   const personSummaries = computed(() => {
     const byPerson = new Map<string, Transaction[]>()
     for (const t of scopedTransactions.value) {
-      if (t.type !== 'lend' && t.type !== 'repay') continue
+      if (t.type !== 'lend' && t.type !== 'repay' && t.type !== 'borrow' && t.type !== 'payback') continue
       const list = byPerson.get(t.label) ?? []
       list.push(t)
       byPerson.set(t.label, list)
@@ -339,15 +353,22 @@ export function useLedger() {
         const settledList = list.filter((t) => !t.planned)
         const lent = settledList.filter((t) => t.type === 'lend').reduce((s, t) => s + t.amount, 0)
         const repaid = settledList.filter((t) => t.type === 'repay').reduce((s, t) => s + t.amount, 0)
+        const borrowed = settledList.filter((t) => t.type === 'borrow').reduce((s, t) => s + t.amount, 0)
+        const paidBack = settledList.filter((t) => t.type === 'payback').reduce((s, t) => s + t.amount, 0)
         return {
           name,
           lent,
           repaid,
+          borrowed,
+          paidBack,
+          /** owed to you, from lending */
           netOwed: lent - repaid,
+          /** owed by you, from borrowing */
+          netOwe: borrowed - paidBack,
           transactions: [...list].sort((a, b) => (a.date < b.date ? 1 : -1)),
         }
       })
-      .sort((a, b) => b.netOwed - a.netOwed)
+      .sort((a, b) => b.netOwed - b.netOwe - (a.netOwed - a.netOwe))
   })
 
   // --- Monthly trend (last N months, income vs expense) ---
@@ -532,6 +553,8 @@ export function useLedger() {
     savings,
     owedToYou,
     totalOwedToYou,
+    owedByYou,
+    totalOwedByYou,
     plannedSpend,
     thisMonthSpend,
     addTransaction,
