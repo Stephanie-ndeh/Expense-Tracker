@@ -24,6 +24,7 @@ type TransactionRow = {
   label: string
   category_id: string | null
   person_id: string | null
+  transfer_id: string | null
   planned: boolean
   created_at: string
 }
@@ -39,6 +40,7 @@ export function rowToTransaction(r: TransactionRow): Transaction {
     label: r.label,
     categoryId: r.category_id,
     personId: r.person_id,
+    transferId: r.transfer_id,
     planned: r.planned,
     createdAt: new Date(r.created_at).getTime(),
   }
@@ -56,6 +58,7 @@ function transactionToRow(t: Transaction, userId: string) {
     label: t.label,
     category_id: t.categoryId,
     person_id: t.personId,
+    transfer_id: t.transferId,
     planned: t.planned,
     created_at: new Date(t.createdAt).toISOString(),
   }
@@ -126,7 +129,8 @@ export function useLedger() {
     () =>
       settled.value.filter((t) => TYPE_META[t.type].group === 'cash').reduce((sum, t) => sum + signedAmount(t), 0) -
       settled.value.filter((t) => TYPE_META[t.type].group === 'savings').reduce((sum, t) => sum + signedAmount(t), 0) +
-      settled.value.filter((t) => TYPE_META[t.type].group === 'lending').reduce((sum, t) => sum + signedAmount(t), 0),
+      settled.value.filter((t) => TYPE_META[t.type].group === 'lending').reduce((sum, t) => sum + signedAmount(t), 0) +
+      settled.value.filter((t) => TYPE_META[t.type].group === 'transfer').reduce((sum, t) => sum + signedAmount(t), 0),
   )
 
   const savings = computed(() =>
@@ -170,18 +174,28 @@ export function useLedger() {
     const userId = await getUserId()
     if (!userId) throw new Error('Not signed in')
 
-    const t: Transaction = { id: uid(), createdAt: Date.now(), ...input }
+    const t: Transaction = { id: uid(), createdAt: Date.now(), transferId: null, ...input }
     const { error } = await supabase.from('transactions').insert(transactionToRow(t, userId))
     if (error) throw error
     state.transactions.push(t)
   }
 
+  /** Transfer-aware: a transfer's two rows share a transfer_id and are removed together in one statement. */
   async function removeTransaction(id: string) {
     if (!supabase) throw new Error('Supabase is not configured')
-    const { error } = await supabase.from('transactions').update({ deleted_at: new Date().toISOString() }).eq('id', id)
+    const existing = state.transactions.find((t) => t.id === id)
+    const transferId = existing?.transferId ?? null
+
+    const query = supabase.from('transactions').update({ deleted_at: new Date().toISOString() })
+    const { error } = transferId ? await query.eq('transfer_id', transferId) : await query.eq('id', id)
     if (error) throw error
-    const idx = state.transactions.findIndex((t) => t.id === id)
-    if (idx !== -1) state.transactions.splice(idx, 1)
+
+    if (transferId) {
+      state.transactions = state.transactions.filter((t) => t.transferId !== transferId)
+    } else {
+      const idx = state.transactions.findIndex((t) => t.id === id)
+      if (idx !== -1) state.transactions.splice(idx, 1)
+    }
   }
 
   async function updateTransaction(
@@ -218,12 +232,97 @@ export function useLedger() {
     if (t) Object.assign(t, patch)
   }
 
+  /** The other leg of a transfer pair, if any — searches all transactions, not just the active wallet's. */
+  function transferSibling(t: Transaction): Transaction | null {
+    if (!t.transferId) return null
+    return state.transactions.find((o) => o.transferId === t.transferId && o.id !== t.id) ?? null
+  }
+
+  /** Transfer-aware: both legs are marked settled together in one statement. */
   async function markSettled(id: string) {
     if (!supabase) throw new Error('Supabase is not configured')
-    const { error } = await supabase.from('transactions').update({ planned: false }).eq('id', id)
+    const existing = state.transactions.find((t) => t.id === id)
+    const transferId = existing?.transferId ?? null
+
+    const query = supabase.from('transactions').update({ planned: false })
+    const { error } = transferId ? await query.eq('transfer_id', transferId) : await query.eq('id', id)
     if (error) throw error
-    const t = state.transactions.find((t) => t.id === id)
-    if (t) t.planned = false
+
+    for (const t of state.transactions) {
+      if (transferId ? t.transferId === transferId : t.id === id) t.planned = false
+    }
+  }
+
+  /** Creates both legs of a transfer atomically (one bulk insert) sharing a new transfer_id. */
+  async function addTransfer(input: {
+    fromWalletId: string
+    toWalletId: string
+    amount: number
+    date: string
+    note: string
+    planned: boolean
+  }) {
+    if (!supabase) throw new Error('Supabase is not configured')
+    const userId = await getUserId()
+    if (!userId) throw new Error('Not signed in')
+    if (input.fromWalletId === input.toWalletId) throw new Error('Pick two different wallets.')
+
+    const fromName = wallets.value.find((w) => w.id === input.fromWalletId)?.name ?? ''
+    const toName = wallets.value.find((w) => w.id === input.toWalletId)?.name ?? ''
+    const transferId = uid()
+    const createdAt = Date.now()
+
+    const out: Transaction = {
+      id: uid(),
+      walletId: input.fromWalletId,
+      type: 'transfer_out',
+      amount: input.amount,
+      date: input.date,
+      note: input.note,
+      label: toName,
+      categoryId: null,
+      personId: null,
+      transferId,
+      planned: input.planned,
+      createdAt,
+    }
+    const inn: Transaction = {
+      id: uid(),
+      walletId: input.toWalletId,
+      type: 'transfer_in',
+      amount: input.amount,
+      date: input.date,
+      note: input.note,
+      label: fromName,
+      categoryId: null,
+      personId: null,
+      transferId,
+      planned: input.planned,
+      createdAt,
+    }
+
+    const { error } = await supabase
+      .from('transactions')
+      .insert([transactionToRow(out, userId), transactionToRow(inn, userId)])
+    if (error) throw error
+    state.transactions.push(out, inn)
+  }
+
+  /** Shared fields only — wallets aren't reassignable after creation; delete and recreate for that. */
+  async function updateTransfer(
+    transferId: string,
+    patch: { amount: number; date: string; note: string; planned: boolean },
+  ) {
+    if (!supabase) throw new Error('Supabase is not configured')
+    const { error } = await supabase
+      .from('transactions')
+      .update({ amount: patch.amount, date: patch.date, note: patch.note, planned: patch.planned })
+      .eq('transfer_id', transferId)
+    if (error) throw error
+
+    for (const t of state.transactions) {
+      if (t.transferId === transferId) Object.assign(t, patch)
+    }
   }
 
   // --- Per-person lending view ---
@@ -438,6 +537,9 @@ export function useLedger() {
     addTransaction,
     removeTransaction,
     updateTransaction,
+    addTransfer,
+    updateTransfer,
+    transferSibling,
     markSettled,
     suggestedCategories,
     suggestedPeople,

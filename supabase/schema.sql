@@ -52,22 +52,27 @@ create table public.transactions (
   id text primary key,
   user_id uuid not null references auth.users (id) on delete cascade,
   wallet_id text not null,
-  type text not null check (type in ('expense', 'income', 'lend', 'repay', 'save', 'withdraw')),
+  type text not null check (
+    type in ('expense', 'income', 'lend', 'repay', 'save', 'withdraw', 'transfer_out', 'transfer_in')
+  ),
   amount numeric not null check (amount > 0),
   date date not null,
   note text not null default '',
   label text not null default '',
   category_id text references public.categories (id) on delete set null,
   person_id text references public.people (id) on delete set null,
+  transfer_id text,
   planned boolean not null default false,
   deleted_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  foreign key (wallet_id, user_id) references public.wallets (id, user_id)
+  foreign key (wallet_id, user_id) references public.wallets (id, user_id),
+  check ((type in ('transfer_out', 'transfer_in')) = (transfer_id is not null))
 );
 create index transactions_user_id_idx on public.transactions (user_id);
 create index transactions_wallet_id_idx on public.transactions (wallet_id);
 create index transactions_user_date_idx on public.transactions (user_id, date);
+create index transactions_transfer_id_idx on public.transactions (transfer_id) where transfer_id is not null;
 
 alter table public.profiles enable row level security;
 alter table public.wallets enable row level security;

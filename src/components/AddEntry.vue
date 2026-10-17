@@ -8,9 +8,20 @@ import { useWallets } from '../composables/useWallets'
 import { useCategories } from '../composables/useCategories'
 import { usePeople } from '../composables/usePeople'
 
+type UiType = TransactionType | 'transfer'
+
 const props = defineProps<{ editing?: Transaction | null }>()
 const emit = defineEmits<{ close: [] }>()
-const { addTransaction, updateTransaction, suggestedCategories, suggestedPeople, personSummaries } = useLedger()
+const {
+  addTransaction,
+  updateTransaction,
+  addTransfer,
+  updateTransfer,
+  transferSibling,
+  suggestedCategories,
+  suggestedPeople,
+  personSummaries,
+} = useLedger()
 const { format } = useSettings()
 const { wallets, activeWalletId } = useWallets()
 const { findOrCreateCategory } = useCategories()
@@ -18,25 +29,47 @@ const { findOrCreatePerson } = usePeople()
 
 const today = new Date().toISOString().slice(0, 10)
 
+const isEditingTransfer = props.editing?.type === 'transfer_out' || props.editing?.type === 'transfer_in'
+const editingSibling = props.editing && isEditingTransfer ? transferSibling(props.editing) : null
+const editingOutLeg = isEditingTransfer
+  ? props.editing?.type === 'transfer_out'
+    ? props.editing
+    : editingSibling
+  : null
+const editingInLeg = isEditingTransfer ? (props.editing?.type === 'transfer_in' ? props.editing : editingSibling) : null
+const editingTransferId = isEditingTransfer ? (props.editing?.transferId ?? null) : null
+
+const defaultWalletId = activeWalletId.value !== 'all' ? activeWalletId.value : (wallets.value[0]?.id ?? '')
+const defaultToWalletId = wallets.value.find((w) => w.id !== defaultWalletId)?.id ?? ''
+
 const form = reactive({
-  type: props.editing?.type ?? ('expense' as TransactionType),
+  type: (isEditingTransfer ? 'transfer' : (props.editing?.type ?? 'expense')) as UiType,
   amount: props.editing ? String(props.editing.amount) : '',
   label: props.editing?.label ?? '',
   note: props.editing?.note ?? '',
   date: props.editing?.date ?? today,
   planned: props.editing?.planned ?? false,
-  walletId:
-    props.editing?.walletId ?? (activeWalletId.value !== 'all' ? activeWalletId.value : (wallets.value[0]?.id ?? '')),
+  walletId: props.editing?.walletId ?? defaultWalletId,
+  fromWalletId: editingOutLeg?.walletId ?? defaultWalletId,
+  toWalletId: editingInLeg?.walletId ?? defaultToWalletId,
 })
 
-const types: { value: TransactionType; short: string }[] = [
+const types: { value: UiType; short: string }[] = [
   { value: 'expense', short: 'Spent' },
   { value: 'income', short: 'Received' },
   { value: 'lend', short: 'Lent out' },
   { value: 'repay', short: 'Paid back' },
   { value: 'save', short: 'Saved' },
   { value: 'withdraw', short: 'From savings' },
+  { value: 'transfer', short: 'Transfer' },
 ]
+
+function canSelectType(value: UiType) {
+  if (value === 'transfer' && wallets.value.length < 2) return false
+  if (!props.editing) return true
+  if (isEditingTransfer) return value === 'transfer'
+  return value !== 'transfer'
+}
 
 const categorySuggestions = computed(() =>
   form.type === 'expense' || form.type === 'income' ? suggestedCategories(form.type) : [],
@@ -63,48 +96,76 @@ const submitError = ref('')
 async function submit() {
   const amount = parseFloat(form.amount)
   if (!amount || amount <= 0) return
+
+  if (form.type === 'transfer' && !props.editing && form.fromWalletId === form.toWalletId) {
+    submitError.value = 'Pick two different wallets.'
+    return
+  }
+
   const typed = form.label.trim()
-  if ((form.type === 'expense' || form.type === 'income' || form.type === 'repay') && !typed) return
+  if (form.type === 'expense' || form.type === 'income' || form.type === 'repay') {
+    if (!typed) return
+  }
 
   submitError.value = ''
   submitting.value = true
   try {
-    let label = typed
-    let categoryId: string | null = null
-    let personId: string | null = null
-
-    if (form.type === 'expense' || form.type === 'income') {
-      const category = await findOrCreateCategory(typed, form.type)
-      label = category.name
-      categoryId = category.id
-    } else if (form.type === 'lend' || form.type === 'repay') {
-      if (typed) {
-        const person = await findOrCreatePerson(typed)
-        label = person.name
-        personId = person.id
+    if (form.type === 'transfer') {
+      if (props.editing) {
+        await updateTransfer(editingTransferId as string, {
+          amount,
+          date: form.date,
+          note: form.note.trim(),
+          planned: form.planned || form.date > today,
+        })
       } else {
-        label = TYPE_META[form.type].labelHint
+        await addTransfer({
+          fromWalletId: form.fromWalletId,
+          toWalletId: form.toWalletId,
+          amount,
+          date: form.date,
+          note: form.note.trim(),
+          planned: form.planned || form.date > today,
+        })
       }
     } else {
-      label = typed || TYPE_META[form.type].labelHint
-    }
+      let label = typed
+      let categoryId: string | null = null
+      let personId: string | null = null
 
-    const payload = {
-      type: form.type,
-      amount,
-      label,
-      note: form.note.trim(),
-      categoryId,
-      personId,
-      date: form.date,
-      planned: form.planned || form.date > today,
-      walletId: form.walletId,
-    }
+      if (form.type === 'expense' || form.type === 'income') {
+        const category = await findOrCreateCategory(typed, form.type)
+        label = category.name
+        categoryId = category.id
+      } else if (form.type === 'lend' || form.type === 'repay') {
+        if (typed) {
+          const person = await findOrCreatePerson(typed)
+          label = person.name
+          personId = person.id
+        } else {
+          label = TYPE_META[form.type].labelHint
+        }
+      } else {
+        label = typed || TYPE_META[form.type].labelHint
+      }
 
-    if (props.editing) {
-      await updateTransaction(props.editing.id, payload)
-    } else {
-      await addTransaction(payload)
+      const payload = {
+        type: form.type,
+        amount,
+        label,
+        note: form.note.trim(),
+        categoryId,
+        personId,
+        date: form.date,
+        planned: form.planned || form.date > today,
+        walletId: form.walletId,
+      }
+
+      if (props.editing) {
+        await updateTransaction(props.editing.id, payload)
+      } else {
+        await addTransaction(payload)
+      }
     }
     emit('close')
   } catch (e) {
@@ -133,7 +194,8 @@ async function submit() {
           v-for="t in types"
           :key="t.value"
           type="button"
-          class="text-xs py-2 rounded-lg border transition-colors"
+          :disabled="!canSelectType(t.value)"
+          class="text-xs py-2 rounded-lg border transition-colors disabled:opacity-40"
           :style="
             form.type === t.value
               ? { background: 'var(--paper)', color: 'var(--ink)', borderColor: 'var(--paper)' }
@@ -145,7 +207,7 @@ async function submit() {
         </button>
       </div>
 
-      <label v-if="wallets.length > 1" class="block mb-4">
+      <label v-if="wallets.length > 1 && form.type !== 'transfer'" class="block mb-4">
         <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Wallet</span>
         <select
           v-model="form.walletId"
@@ -222,6 +284,41 @@ async function submit() {
           style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
         />
       </label>
+
+      <template v-if="form.type === 'transfer'">
+        <div v-if="editing" class="mb-4 text-sm space-y-2">
+          <p>
+            <span class="text-xs uppercase tracking-wide block" style="color: var(--paper-dim)">From</span>
+            {{ wallets.find((w) => w.id === form.fromWalletId)?.name ?? '—' }}
+          </p>
+          <p>
+            <span class="text-xs uppercase tracking-wide block" style="color: var(--paper-dim)">To</span>
+            {{ wallets.find((w) => w.id === form.toWalletId)?.name ?? '—' }}
+          </p>
+        </div>
+        <template v-else>
+          <label class="block mb-4">
+            <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">From wallet</span>
+            <select
+              v-model="form.fromWalletId"
+              class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
+              style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+            >
+              <option v-for="w in wallets" :key="w.id" :value="w.id">{{ w.name }}</option>
+            </select>
+          </label>
+          <label class="block mb-4">
+            <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">To wallet</span>
+            <select
+              v-model="form.toWalletId"
+              class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
+              style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+            >
+              <option v-for="w in wallets" :key="w.id" :value="w.id">{{ w.name }}</option>
+            </select>
+          </label>
+        </template>
+      </template>
 
       <label class="block mb-4">
         <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Note (optional)</span>
