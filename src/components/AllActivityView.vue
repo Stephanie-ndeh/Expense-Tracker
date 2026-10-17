@@ -7,7 +7,7 @@ import type { Transaction } from '../types/transaction'
 import ConfirmDeleteModal from './ConfirmDeleteModal.vue'
 import SwipeRow from './SwipeRow.vue'
 
-const emit = defineEmits<{ back: [] }>()
+const emit = defineEmits<{ back: []; edit: [transaction: Transaction] }>()
 const { activityInRange, removeTransaction } = useLedger()
 const { format } = useSettings()
 
@@ -117,12 +117,13 @@ function dayLabel(date: string) {
       <p v-if="!list.length" class="text-sm py-6 text-center" style="color: var(--paper-dim)">
         No activity in this period.
       </p>
-      <p v-else class="text-[11px] mb-1" style="color: var(--paper-dim)">Swipe left on an entry to delete it.</p>
+      <p v-else class="text-[11px] mb-1" style="color: var(--paper-dim)">Swipe left to delete · swipe right to edit.</p>
       <SwipeRow
         v-for="t in list"
         :key="t.id"
         class="border-b"
         style="border-color: var(--ink-line)"
+        @edit="emit('edit', t)"
         @delete="pendingDelete = t"
       >
         <div class="flex items-center justify-between py-2.5">
