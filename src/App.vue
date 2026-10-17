@@ -39,9 +39,9 @@ async function saveCurrency() {
     currencyError.value = e instanceof Error ? e.message : 'Could not save currency.'
   }
 }
-const { exportData, exportCsv, importData } = useLedger()
+const { exportData, exportCsv, importData, pendingSyncCount } = useLedger()
 const { enabled: syncEnabled, loading: authLoading, isAuthenticated, userEmail, signOut } = useAuth()
-const { syncing, lastSyncedAt, error: syncError, syncNow } = useSync()
+const { syncing, lastSyncedAt, error: syncError, queueError, syncNow } = useSync()
 
 function lastSyncedLabel() {
   if (!lastSyncedAt.value) return 'Not synced yet'
@@ -160,6 +160,10 @@ async function handleImportFile(e: Event) {
             <p class="text-xs mt-1" :style="{ color: syncError ? 'var(--money-out)' : 'var(--paper-dim)' }">
               {{ syncError ? `Sync error: ${syncError}` : syncing ? 'Syncing…' : lastSyncedLabel() }}
             </p>
+            <p v-if="pendingSyncCount" class="text-xs mt-1" style="color: var(--accent)">
+              {{ pendingSyncCount }} {{ pendingSyncCount === 1 ? 'entry' : 'entries' }} waiting to sync
+            </p>
+            <p v-if="queueError" class="text-xs mt-1" style="color: var(--money-out)">{{ queueError }}</p>
             <div class="flex gap-2 mt-3">
               <button
                 :disabled="syncing"

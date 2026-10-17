@@ -38,6 +38,10 @@ export function useCategories() {
     const existing = findCategory(trimmed, kind)
     if (existing) return existing
 
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      throw new Error("You're offline — only existing categories can be used until you're back online.")
+    }
+
     if (!supabase) throw new Error('Supabase is not configured')
     const userId = await getUserId()
     if (!userId) throw new Error('Not signed in')

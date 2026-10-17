@@ -7,11 +7,13 @@ import { useCategories, rowToCategory } from './useCategories'
 import { usePeople, rowToPerson } from './usePeople'
 import { useTodos, rowToTodo } from './useTodos'
 import { loadProfile, clearSettings } from './useSettings'
+import { clearQueuedMutations } from '../lib/offlineQueue'
 
 const status = reactive({
   syncing: false,
   lastSyncedAt: null as number | null,
   error: null as string | null,
+  queueError: null as string | null,
 })
 
 async function loadAll() {
@@ -24,10 +26,19 @@ async function loadAll() {
     if (!userId) return
 
     const { wallets, replaceWallets, createDefaultWallet } = useWallets()
-    const { replaceTransactions } = useLedger()
+    const { replaceTransactions, flushPendingTransactions } = useLedger()
     const { replaceCategories } = useCategories()
     const { replacePeople } = usePeople()
     const { replaceTodos } = useTodos()
+
+    // Replay anything queued while offline before the fetch below, so the fresh fetch
+    // reflects the now-synced rows and no pending item is lost to the upcoming replace.
+    if (typeof navigator === 'undefined' || navigator.onLine) {
+      const { failed } = await flushPendingTransactions()
+      status.queueError = failed
+        ? `${failed} queued entr${failed === 1 ? 'y' : 'ies'} failed to sync — will retry later.`
+        : null
+    }
 
     const [
       { data: walletRows, error: walletsError },
@@ -73,8 +84,12 @@ function clearAll() {
   usePeople().clearPeople()
   useTodos().clearTodos()
   clearSettings()
+  // Same reasoning as clearing every other composable's state on sign-out: an offline
+  // queue left behind would otherwise get flushed under the next account signed in here.
+  void clearQueuedMutations()
   status.lastSyncedAt = null
   status.error = null
+  status.queueError = null
 }
 
 if (supabaseEnabled) {
@@ -101,6 +116,7 @@ export function useSync() {
     syncing: computed(() => status.syncing),
     lastSyncedAt: computed(() => status.lastSyncedAt),
     error: computed(() => status.error),
+    queueError: computed(() => status.queueError),
     syncNow: loadAll,
   }
 }
