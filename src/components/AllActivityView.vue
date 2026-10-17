@@ -2,34 +2,102 @@
 import { computed, ref } from 'vue'
 import { useLedger } from '../composables/useLedger'
 import { useSettings } from '../composables/useSettings'
+import { useWallets } from '../composables/useWallets'
+import { useCategories } from '../composables/useCategories'
+import { usePeople } from '../composables/usePeople'
 import { TYPE_META } from '../types/transaction'
-import type { Transaction } from '../types/transaction'
+import type { Transaction, TransactionType } from '../types/transaction'
 import ConfirmDeleteModal from './ConfirmDeleteModal.vue'
 import SwipeRow from './SwipeRow.vue'
 
 const emit = defineEmits<{ back: []; edit: [transaction: Transaction] }>()
-const { activityInRange, removeTransaction } = useLedger()
+const { filterActivity, activityTotal, removeTransaction } = useLedger()
 const { format } = useSettings()
+const { wallets } = useWallets()
+const { categories } = useCategories()
+const { people } = usePeople()
 
-type RangeKey = 'week' | 'month' | 'year' | 'all'
-type KindKey = 'all' | 'spent' | 'received'
+const types: { value: TransactionType; label: string }[] = [
+  { value: 'expense', label: 'Spent' },
+  { value: 'income', label: 'Received' },
+  { value: 'lend', label: 'Lent out' },
+  { value: 'repay', label: 'Paid back' },
+  { value: 'save', label: 'Saved' },
+  { value: 'withdraw', label: 'From savings' },
+]
 
-const range = ref<RangeKey>('month')
-const kind = ref<KindKey>('all')
+const labelOptions = computed(() => {
+  const names = new Set<string>()
+  for (const c of categories.value) names.add(c.name)
+  for (const p of people.value) names.add(p.name)
+  return Array.from(names).sort((a, b) => a.localeCompare(b))
+})
 
-const rangeTabs: { value: RangeKey; label: string }[] = [
+const query = ref('')
+const type = ref<TransactionType | 'all'>('all')
+const walletId = ref<string>('all')
+const label = ref<string>('all')
+const minAmountInput = ref('')
+const maxAmountInput = ref('')
+const startDate = ref<string | null>(null)
+const endDate = ref<string | null>(null)
+
+type Preset = 'week' | 'month' | 'year' | 'all'
+const presets: { value: Preset; label: string }[] = [
   { value: 'week', label: 'Week' },
   { value: 'month', label: 'Month' },
   { value: 'year', label: 'Year' },
   { value: 'all', label: 'All' },
 ]
-const kindTabs: { value: KindKey; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'spent', label: 'Spent' },
-  { value: 'received', label: 'Received' },
-]
 
-const list = computed(() => activityInRange(range.value, kind.value))
+function todayStr() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function presetRange(preset: Preset): { start: string | null; end: string | null } {
+  if (preset === 'all') return { start: null, end: null }
+  const now = new Date()
+  const end = todayStr()
+  if (preset === 'week') {
+    const d = new Date(now)
+    d.setDate(d.getDate() - 6)
+    return { start: d.toISOString().slice(0, 10), end }
+  }
+  if (preset === 'month') {
+    return { start: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`, end }
+  }
+  return { start: `${now.getFullYear()}-01-01`, end }
+}
+
+function applyPreset(preset: Preset) {
+  const r = presetRange(preset)
+  startDate.value = r.start
+  endDate.value = r.end
+}
+applyPreset('month')
+
+const activePreset = computed(
+  () =>
+    presets.find((p) => {
+      const r = presetRange(p.value)
+      return r.start === startDate.value && r.end === endDate.value
+    })?.value ?? null,
+)
+
+const list = computed(() =>
+  filterActivity({
+    query: query.value,
+    type: type.value,
+    walletId: walletId.value,
+    label: label.value,
+    minAmount: minAmountInput.value ? parseFloat(minAmountInput.value) : null,
+    maxAmount: maxAmountInput.value ? parseFloat(maxAmountInput.value) : null,
+    startDate: startDate.value,
+    endDate: endDate.value,
+  }),
+)
+
+const total = computed(() => activityTotal(list.value))
 
 const pendingDelete = ref<Transaction | null>(null)
 const deleteError = ref('')
@@ -75,47 +143,107 @@ function dayLabel(date: string) {
       <h1 class="text-sm font-semibold">All activity</h1>
     </header>
 
-    <div class="px-5 pt-2">
-      <div class="flex gap-2 mb-2">
+    <div class="px-5 pt-2 space-y-3">
+      <input
+        v-model="query"
+        type="text"
+        placeholder="Search label or note"
+        class="w-full rounded-lg px-3 py-2 text-sm outline-none border"
+        style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+      />
+
+      <div class="grid grid-cols-2 gap-2">
+        <select
+          v-model="type"
+          class="rounded-lg px-3 py-2 text-xs outline-none border"
+          style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+        >
+          <option value="all">All types</option>
+          <option v-for="t in types" :key="t.value" :value="t.value">{{ t.label }}</option>
+        </select>
+
+        <select
+          v-model="walletId"
+          class="rounded-lg px-3 py-2 text-xs outline-none border"
+          style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+        >
+          <option value="all">All wallets</option>
+          <option v-for="w in wallets" :key="w.id" :value="w.id">{{ w.name }}</option>
+        </select>
+      </div>
+
+      <select
+        v-model="label"
+        class="w-full rounded-lg px-3 py-2 text-xs outline-none border"
+        style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+      >
+        <option value="all">All categories / people</option>
+        <option v-for="l in labelOptions" :key="l" :value="l">{{ l }}</option>
+      </select>
+
+      <div class="grid grid-cols-2 gap-2">
+        <input
+          v-model="minAmountInput"
+          type="number"
+          inputmode="decimal"
+          min="0"
+          placeholder="Min amount"
+          class="rounded-lg px-3 py-2 text-xs outline-none border"
+          style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+        />
+        <input
+          v-model="maxAmountInput"
+          type="number"
+          inputmode="decimal"
+          min="0"
+          placeholder="Max amount"
+          class="rounded-lg px-3 py-2 text-xs outline-none border"
+          style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+        />
+      </div>
+
+      <div class="flex gap-2">
         <button
-          v-for="tab in kindTabs"
-          :key="tab.value"
+          v-for="p in presets"
+          :key="p.value"
           class="flex-1 text-xs py-2 rounded-lg border"
           :style="
-            kind === tab.value
+            activePreset === p.value
               ? { background: 'var(--paper)', color: 'var(--ink)', borderColor: 'var(--paper)' }
               : { borderColor: 'var(--ink-line)', color: 'var(--paper-dim)' }
           "
-          @click="kind = tab.value"
+          @click="applyPreset(p.value)"
         >
-          {{ tab.label }}
+          {{ p.label }}
         </button>
       </div>
 
-      <div class="flex gap-2 mb-4">
-        <button
-          v-for="tab in rangeTabs"
-          :key="tab.value"
-          class="flex-1 text-xs py-2 rounded-lg border"
-          :style="
-            range === tab.value
-              ? { background: 'var(--paper)', color: 'var(--ink)', borderColor: 'var(--paper)' }
-              : { borderColor: 'var(--ink-line)', color: 'var(--paper-dim)' }
-          "
-          @click="range = tab.value"
-        >
-          {{ tab.label }}
-        </button>
+      <div class="grid grid-cols-2 gap-2">
+        <input
+          v-model="startDate"
+          type="date"
+          class="rounded-lg px-3 py-2 text-xs outline-none border"
+          style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+        />
+        <input
+          v-model="endDate"
+          type="date"
+          class="rounded-lg px-3 py-2 text-xs outline-none border"
+          style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+        />
       </div>
 
       <p class="text-xs" style="color: var(--paper-dim)">
-        {{ list.length }} {{ list.length === 1 ? 'entry' : 'entries' }}
+        {{ list.length }} {{ list.length === 1 ? 'entry' : 'entries' }} · net
+        <span class="font-mono" :style="{ color: total >= 0 ? 'var(--money-in)' : 'var(--money-out)' }">
+          {{ total >= 0 ? '+' : '−' }}{{ format(Math.abs(total)) }}
+        </span>
       </p>
     </div>
 
     <div class="px-5 pt-4">
       <p v-if="!list.length" class="text-sm py-6 text-center" style="color: var(--paper-dim)">
-        No activity in this period.
+        No activity matches these filters.
       </p>
       <p v-else class="text-[11px] mb-1" style="color: var(--paper-dim)">Swipe left to delete · swipe right to edit.</p>
       <SwipeRow

@@ -276,20 +276,36 @@ export function useLedger() {
   // --- Recent activity: top few for home, full history for the dedicated view ---
   const recentActivity = computed(() => pastTransactions.value.slice(0, 5))
 
-  type RangeKey = 'week' | 'month' | 'year' | 'all'
-  type KindKey = 'all' | 'spent' | 'received'
-  function activityInRange(range: RangeKey, kind: KindKey = 'all') {
-    const now = new Date()
-    return pastTransactions.value.filter((t) => {
-      if (kind === 'spent' && TYPE_META[t.type].sign > 0) return false
-      if (kind === 'received' && TYPE_META[t.type].sign < 0) return false
-      if (range === 'all') return true
-      if (range === 'year') return t.date.slice(0, 4) === String(now.getFullYear())
-      if (range === 'month') return t.date.slice(0, 7) === today().slice(0, 7)
-      const d = new Date(t.date + 'T00:00:00')
-      const diffDays = (now.getTime() - d.getTime()) / 86400000
-      return diffDays >= 0 && diffDays < 7
-    })
+  interface ActivityFilters {
+    query: string
+    type: TransactionType | 'all'
+    walletId: string | 'all'
+    label: string | 'all'
+    minAmount: number | null
+    maxAmount: number | null
+    startDate: string | null
+    endDate: string | null
+  }
+
+  /** Unscoped by the active wallet tab — the view owns its own explicit wallet filter. */
+  function filterActivity(filters: ActivityFilters) {
+    const q = filters.query.trim().toLowerCase()
+    return state.transactions
+      .filter((t) => !t.planned && t.date <= today())
+      .filter((t) => !q || t.label.toLowerCase().includes(q) || t.note.toLowerCase().includes(q))
+      .filter((t) => filters.type === 'all' || t.type === filters.type)
+      .filter((t) => filters.walletId === 'all' || t.walletId === filters.walletId)
+      .filter((t) => filters.label === 'all' || t.label.toLowerCase() === filters.label.toLowerCase())
+      .filter((t) => filters.minAmount == null || t.amount >= filters.minAmount)
+      .filter((t) => filters.maxAmount == null || t.amount <= filters.maxAmount)
+      .filter((t) => !filters.startDate || t.date >= filters.startDate)
+      .filter((t) => !filters.endDate || t.date <= filters.endDate)
+      .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.createdAt - a.createdAt))
+  }
+
+  /** Signed net total (TYPE_META sign applied) for a filtered set of transactions. */
+  function activityTotal(items: Transaction[]) {
+    return items.reduce((s, t) => s + signedAmount(t), 0)
   }
 
   // --- Month-over-month comparison ---
@@ -429,7 +445,8 @@ export function useLedger() {
     monthlyTrend,
     pastTransactions,
     recentActivity,
-    activityInRange,
+    filterActivity,
+    activityTotal,
     monthComparison,
     categoryComparison,
     exportData,
