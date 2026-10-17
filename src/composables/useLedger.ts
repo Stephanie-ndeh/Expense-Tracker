@@ -2,7 +2,10 @@ import { computed, reactive } from 'vue'
 import type { Transaction, TransactionType } from '../types/transaction'
 import { TYPE_META } from '../types/transaction'
 import type { Wallet } from '../types/wallet'
+import type { CategoryKind } from '../types/category'
 import { useWallets } from './useWallets'
+import { useCategories } from './useCategories'
+import { usePeople } from './usePeople'
 import { supabase } from '../lib/supabaseClient'
 
 function uid() {
@@ -19,6 +22,8 @@ type TransactionRow = {
   date: string
   note: string
   label: string
+  category_id: string | null
+  person_id: string | null
   planned: boolean
   created_at: string
 }
@@ -32,6 +37,8 @@ export function rowToTransaction(r: TransactionRow): Transaction {
     date: r.date,
     note: r.note,
     label: r.label,
+    categoryId: r.category_id,
+    personId: r.person_id,
     planned: r.planned,
     createdAt: new Date(r.created_at).getTime(),
   }
@@ -47,6 +54,8 @@ function transactionToRow(t: Transaction, userId: string) {
     date: t.date,
     note: t.note,
     label: t.label,
+    category_id: t.categoryId,
+    person_id: t.personId,
     planned: t.planned,
     created_at: new Date(t.createdAt).toISOString(),
   }
@@ -64,6 +73,31 @@ const state = reactive({
 
 export function useLedger() {
   const { activeWalletId, wallets, importWallets } = useWallets()
+  const { categories } = useCategories()
+  const { people } = usePeople()
+
+  /** Categories of the given kind, most-used-first (ties keep the categories table's order). */
+  function suggestedCategories(kind: CategoryKind) {
+    const counts = new Map<string, number>()
+    for (const t of state.transactions) {
+      if (t.categoryId && t.type === kind) counts.set(t.categoryId, (counts.get(t.categoryId) ?? 0) + 1)
+    }
+    return categories.value
+      .filter((c) => c.kind === kind)
+      .slice()
+      .sort((a, b) => (counts.get(b.id) ?? 0) - (counts.get(a.id) ?? 0))
+  }
+
+  /** People used in lend/repay entries, most-used-first (ties keep the people table's order). */
+  function suggestedPeople() {
+    const counts = new Map<string, number>()
+    for (const t of state.transactions) {
+      if (t.personId && (t.type === 'lend' || t.type === 'repay')) {
+        counts.set(t.personId, (counts.get(t.personId) ?? 0) + 1)
+      }
+    }
+    return people.value.slice().sort((a, b) => (counts.get(b.id) ?? 0) - (counts.get(a.id) ?? 0))
+  }
 
   const scopedTransactions = computed(() =>
     activeWalletId.value === 'all'
@@ -127,6 +161,8 @@ export function useLedger() {
     date: string
     note: string
     label: string
+    categoryId: string | null
+    personId: string | null
     planned: boolean
     walletId: string
   }) {
@@ -156,6 +192,8 @@ export function useLedger() {
       date: string
       note: string
       label: string
+      categoryId: string | null
+      personId: string | null
       planned: boolean
       walletId: string
     },
@@ -169,6 +207,8 @@ export function useLedger() {
         date: patch.date,
         note: patch.note,
         label: patch.label,
+        category_id: patch.categoryId,
+        person_id: patch.personId,
         planned: patch.planned,
         wallet_id: patch.walletId,
       })
@@ -383,6 +423,8 @@ export function useLedger() {
     removeTransaction,
     updateTransaction,
     markSettled,
+    suggestedCategories,
+    suggestedPeople,
     personSummaries,
     monthlyTrend,
     pastTransactions,

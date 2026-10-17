@@ -9,6 +9,9 @@ export interface Transaction {
   note: string
   /** category for expense/income, person's name for lend/repay */
   label: string
+  /** links to categories/people tables for expense/income/lend/repay — resolved via findOrCreate, not user-set directly */
+  categoryId: string | null
+  personId: string | null
   /** true = hasn't happened yet, excluded from balance, shown in "coming up" */
   planned: boolean
   createdAt: number
