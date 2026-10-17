@@ -10,19 +10,22 @@ import WalletTabs from './components/WalletTabs.vue'
 import PeopleView from './components/PeopleView.vue'
 import AllActivityView from './components/AllActivityView.vue'
 import TrendsView from './components/TrendsView.vue'
+import TodosView from './components/TodosView.vue'
+import UpcomingTodos from './components/UpcomingTodos.vue'
 import UpdateBanner from './components/UpdateBanner.vue'
 import AuthGate from './components/AuthGate.vue'
 import { useSettings } from './composables/useSettings'
 import { useLedger } from './composables/useLedger'
 import { useAuth } from './composables/useAuth'
 import { useSync } from './composables/useSync'
-import type { Transaction } from './types/transaction'
+import type { Transaction, TransactionType } from './types/transaction'
 
-type View = 'home' | 'activity' | 'trends'
+type View = 'home' | 'activity' | 'trends' | 'todos'
 const view = ref<View>('home')
 
 const showAdd = ref(false)
 const editingTransaction = ref<Transaction | null>(null)
+const todoPrefill = ref<{ type?: TransactionType; amount?: number; label?: string; walletId?: string } | null>(null)
 const showSettings = ref(false)
 const showPeople = ref(false)
 const { settings, updateCurrency } = useSettings()
@@ -51,6 +54,7 @@ function lastSyncedLabel() {
 function closeAddEntry() {
   showAdd.value = false
   editingTransaction.value = null
+  todoPrefill.value = null
 }
 
 const importFile = ref<HTMLInputElement | null>(null)
@@ -105,6 +109,7 @@ async function handleImportFile(e: Event) {
   <template v-else>
     <AllActivityView v-if="view === 'activity'" @back="view = 'home'" @edit="editingTransaction = $event" />
     <TrendsView v-else-if="view === 'trends'" @back="view = 'home'" />
+    <TodosView v-else-if="view === 'todos'" @back="view = 'home'" @log="todoPrefill = $event" />
 
     <div v-else class="min-h-screen pb-28" style="background: var(--ink); color: var(--paper)">
       <header class="flex items-center justify-between px-5 pt-5">
@@ -119,6 +124,7 @@ async function handleImportFile(e: Event) {
       <SummaryCards @open-people="showPeople = true" />
       <TrendChart @open-trends="view = 'trends'" />
       <TransactionFeed @edit="editingTransaction = $event" />
+      <UpcomingTodos @see-all="view = 'todos'" @log="todoPrefill = $event" />
       <RecentActivity @see-all="view = 'activity'" @edit="editingTransaction = $event" />
 
       <button
@@ -224,6 +230,11 @@ async function handleImportFile(e: Event) {
       </div>
     </div>
 
-    <AddEntry v-if="showAdd || editingTransaction" :editing="editingTransaction" @close="closeAddEntry" />
+    <AddEntry
+      v-if="showAdd || editingTransaction || todoPrefill"
+      :editing="editingTransaction"
+      :prefill="todoPrefill"
+      @close="closeAddEntry"
+    />
   </template>
 </template>

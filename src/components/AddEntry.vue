@@ -10,7 +10,10 @@ import { usePeople } from '../composables/usePeople'
 
 type UiType = TransactionType | 'transfer'
 
-const props = defineProps<{ editing?: Transaction | null }>()
+const props = defineProps<{
+  editing?: Transaction | null
+  prefill?: { type?: TransactionType; amount?: number; label?: string; walletId?: string } | null
+}>()
 const emit = defineEmits<{ close: [] }>()
 const {
   addTransaction,
@@ -43,13 +46,17 @@ const defaultWalletId = activeWalletId.value !== 'all' ? activeWalletId.value : 
 const defaultToWalletId = wallets.value.find((w) => w.id !== defaultWalletId)?.id ?? ''
 
 const form = reactive({
-  type: (isEditingTransfer ? 'transfer' : (props.editing?.type ?? 'expense')) as UiType,
-  amount: props.editing ? String(props.editing.amount) : '',
-  label: props.editing?.label ?? '',
+  type: (isEditingTransfer ? 'transfer' : (props.editing?.type ?? props.prefill?.type ?? 'expense')) as UiType,
+  amount: props.editing
+    ? String(props.editing.amount)
+    : props.prefill?.amount != null
+      ? String(props.prefill.amount)
+      : '',
+  label: props.editing?.label ?? props.prefill?.label ?? '',
   note: props.editing?.note ?? '',
   date: props.editing?.date ?? today,
   planned: props.editing?.planned ?? false,
-  walletId: props.editing?.walletId ?? defaultWalletId,
+  walletId: props.editing?.walletId ?? props.prefill?.walletId ?? defaultWalletId,
   fromWalletId: editingOutLeg?.walletId ?? defaultWalletId,
   toWalletId: editingInLeg?.walletId ?? defaultToWalletId,
 })
