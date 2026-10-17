@@ -6,7 +6,7 @@ import { useWallets } from './useWallets'
 import { supabase } from '../lib/supabaseClient'
 
 function uid() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
+  return crypto.randomUUID()
 }
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -20,7 +20,7 @@ type TransactionRow = {
   note: string
   label: string
   planned: boolean
-  created_at: number | string
+  created_at: string
 }
 
 export function rowToTransaction(r: TransactionRow): Transaction {
@@ -33,7 +33,7 @@ export function rowToTransaction(r: TransactionRow): Transaction {
     note: r.note,
     label: r.label,
     planned: r.planned,
-    createdAt: Number(r.created_at),
+    createdAt: new Date(r.created_at).getTime(),
   }
 }
 
@@ -48,7 +48,7 @@ function transactionToRow(t: Transaction, userId: string) {
     note: t.note,
     label: t.label,
     planned: t.planned,
-    created_at: t.createdAt,
+    created_at: new Date(t.createdAt).toISOString(),
   }
 }
 
@@ -142,7 +142,7 @@ export function useLedger() {
 
   async function removeTransaction(id: string) {
     if (!supabase) throw new Error('Supabase is not configured')
-    const { error } = await supabase.from('transactions').delete().eq('id', id)
+    const { error } = await supabase.from('transactions').update({ deleted_at: new Date().toISOString() }).eq('id', id)
     if (error) throw error
     const idx = state.transactions.findIndex((t) => t.id === id)
     if (idx !== -1) state.transactions.splice(idx, 1)
