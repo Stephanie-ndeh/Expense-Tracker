@@ -3,6 +3,7 @@
 -- This drops and recreates every table — intended for a fresh start, not a migration.
 -- For an existing database, run the files in supabase/migrations/ instead, in order.
 
+drop table if exists public.todos cascade;
 drop table if exists public.transactions cascade;
 drop table if exists public.categories cascade;
 drop table if exists public.people cascade;
@@ -77,11 +78,28 @@ create index transactions_wallet_id_idx on public.transactions (wallet_id);
 create index transactions_user_date_idx on public.transactions (user_id, date);
 create index transactions_transfer_id_idx on public.transactions (transfer_id) where transfer_id is not null;
 
+create table public.todos (
+  id text primary key,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  title text not null,
+  amount numeric check (amount is null or amount > 0),
+  type text check (type is null or type in ('expense', 'income', 'lend', 'repay', 'save', 'withdraw', 'borrow', 'payback')),
+  due_date date,
+  wallet_id text,
+  done boolean not null default false,
+  deleted_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  foreign key (wallet_id, user_id) references public.wallets (id, user_id)
+);
+create index todos_user_id_idx on public.todos (user_id);
+
 alter table public.profiles enable row level security;
 alter table public.wallets enable row level security;
 alter table public.categories enable row level security;
 alter table public.people enable row level security;
 alter table public.transactions enable row level security;
+alter table public.todos enable row level security;
 
 create policy "profiles_select_own" on public.profiles for select using (auth.uid() = id);
 create policy "profiles_insert_own" on public.profiles for insert with check (auth.uid() = id);
@@ -107,6 +125,11 @@ create policy "transactions_insert_own" on public.transactions for insert with c
 create policy "transactions_update_own" on public.transactions for update using (auth.uid() = user_id);
 create policy "transactions_delete_own" on public.transactions for delete using (auth.uid() = user_id);
 
+create policy "todos_select_own" on public.todos for select using (auth.uid() = user_id);
+create policy "todos_insert_own" on public.todos for insert with check (auth.uid() = user_id);
+create policy "todos_update_own" on public.todos for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "todos_delete_own" on public.todos for delete using (auth.uid() = user_id);
+
 create or replace function public.set_updated_at()
 returns trigger as $$
 begin
@@ -120,4 +143,6 @@ create trigger profiles_set_updated_at before update on public.profiles
 create trigger wallets_set_updated_at before update on public.wallets
   for each row execute function public.set_updated_at();
 create trigger transactions_set_updated_at before update on public.transactions
+  for each row execute function public.set_updated_at();
+create trigger todos_set_updated_at before update on public.todos
   for each row execute function public.set_updated_at();

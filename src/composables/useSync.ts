@@ -5,6 +5,7 @@ import { useLedger, rowToTransaction } from './useLedger'
 import { useWallets, rowToWallet } from './useWallets'
 import { useCategories, rowToCategory } from './useCategories'
 import { usePeople, rowToPerson } from './usePeople'
+import { useTodos, rowToTodo } from './useTodos'
 import { loadProfile, clearSettings } from './useSettings'
 
 const status = reactive({
@@ -26,22 +27,26 @@ async function loadAll() {
     const { replaceTransactions } = useLedger()
     const { replaceCategories } = useCategories()
     const { replacePeople } = usePeople()
+    const { replaceTodos } = useTodos()
 
     const [
       { data: walletRows, error: walletsError },
       { data: txRows, error: txError },
       { data: categoryRows, error: categoriesError },
       { data: peopleRows, error: peopleError },
+      { data: todoRows, error: todosError },
     ] = await Promise.all([
       supabase.from('wallets').select('*').is('deleted_at', null),
       supabase.from('transactions').select('*').is('deleted_at', null),
       supabase.from('categories').select('*'),
       supabase.from('people').select('*'),
+      supabase.from('todos').select('*').is('deleted_at', null),
     ])
     if (walletsError) throw walletsError
     if (txError) throw txError
     if (categoriesError) throw categoriesError
     if (peopleError) throw peopleError
+    if (todosError) throw todosError
 
     await loadProfile()
 
@@ -49,6 +54,7 @@ async function loadAll() {
     replaceTransactions((txRows ?? []).map(rowToTransaction))
     replaceCategories((categoryRows ?? []).map(rowToCategory))
     replacePeople((peopleRows ?? []).map(rowToPerson))
+    replaceTodos((todoRows ?? []).map(rowToTodo))
 
     if (!wallets.value.length) await createDefaultWallet()
 
@@ -65,6 +71,7 @@ function clearAll() {
   useLedger().clearTransactions()
   useCategories().clearCategories()
   usePeople().clearPeople()
+  useTodos().clearTodos()
   clearSettings()
   status.lastSyncedAt = null
   status.error = null
