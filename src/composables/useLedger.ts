@@ -148,6 +148,36 @@ export function useLedger() {
     if (idx !== -1) state.transactions.splice(idx, 1)
   }
 
+  async function updateTransaction(
+    id: string,
+    patch: {
+      type: TransactionType
+      amount: number
+      date: string
+      note: string
+      label: string
+      planned: boolean
+      walletId: string
+    },
+  ) {
+    if (!supabase) throw new Error('Supabase is not configured')
+    const { error } = await supabase
+      .from('transactions')
+      .update({
+        type: patch.type,
+        amount: patch.amount,
+        date: patch.date,
+        note: patch.note,
+        label: patch.label,
+        planned: patch.planned,
+        wallet_id: patch.walletId,
+      })
+      .eq('id', id)
+    if (error) throw error
+    const t = state.transactions.find((t) => t.id === id)
+    if (t) Object.assign(t, patch)
+  }
+
   async function markSettled(id: string) {
     if (!supabase) throw new Error('Supabase is not configured')
     const { error } = await supabase.from('transactions').update({ planned: false }).eq('id', id)
@@ -351,6 +381,7 @@ export function useLedger() {
     thisMonthSpend,
     addTransaction,
     removeTransaction,
+    updateTransaction,
     markSettled,
     personSummaries,
     monthlyTrend,

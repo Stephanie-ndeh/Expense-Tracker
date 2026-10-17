@@ -1,27 +1,43 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
-import type { TransactionType } from '../types/transaction'
+import type { Transaction, TransactionType } from '../types/transaction'
 import { TYPE_META } from '../types/transaction'
 import { useLedger } from '../composables/useLedger'
 import { useSettings } from '../composables/useSettings'
 import { useWallets } from '../composables/useWallets'
 
+const props = defineProps<{ editing?: Transaction | null }>()
 const emit = defineEmits<{ close: [] }>()
-const { addTransaction, personSummaries } = useLedger()
+const { addTransaction, updateTransaction, personSummaries } = useLedger()
 const { format } = useSettings()
 const { wallets, activeWalletId } = useWallets()
 
 const today = new Date().toISOString().slice(0, 10)
 
+const EXPENSE_CATEGORIES = ['Food', 'Transport', 'Shopping', 'Airtime/Data', 'Bills', 'Family/Support', 'Other']
+const INCOME_CATEGORIES = ['Salary', 'Gifted', 'Side job', 'Refund', 'Borrowed', 'Other']
+
+function initialLabelFields(t: Transaction | null | undefined) {
+  if (!t) return { label: '', otherLabel: '' }
+  if (t.type === 'expense' || t.type === 'income') {
+    const categories = t.type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES
+    return categories.includes(t.label) ? { label: t.label, otherLabel: '' } : { label: 'Other', otherLabel: t.label }
+  }
+  return { label: t.label, otherLabel: '' }
+}
+
+const initialLabel = initialLabelFields(props.editing)
+
 const form = reactive({
-  type: 'expense' as TransactionType,
-  amount: '',
-  label: '',
-  otherLabel: '',
-  note: '',
-  date: today,
-  planned: false,
-  walletId: activeWalletId.value !== 'all' ? activeWalletId.value : (wallets.value[0]?.id ?? ''),
+  type: props.editing?.type ?? ('expense' as TransactionType),
+  amount: props.editing ? String(props.editing.amount) : '',
+  label: initialLabel.label,
+  otherLabel: initialLabel.otherLabel,
+  note: props.editing?.note ?? '',
+  date: props.editing?.date ?? today,
+  planned: props.editing?.planned ?? false,
+  walletId:
+    props.editing?.walletId ?? (activeWalletId.value !== 'all' ? activeWalletId.value : (wallets.value[0]?.id ?? '')),
 })
 
 const types: { value: TransactionType; short: string }[] = [
@@ -33,8 +49,6 @@ const types: { value: TransactionType; short: string }[] = [
   { value: 'withdraw', short: 'From savings' },
 ]
 
-const EXPENSE_CATEGORIES = ['Food', 'Transport', 'Shopping', 'Airtime/Data', 'Bills', 'Family/Support', 'Other']
-const INCOME_CATEGORIES = ['Salary', 'Gifted', 'Side job', 'Refund', 'Borrowed', 'Other']
 const categoryOptions = computed(() => (form.type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES))
 
 // A stale category/person/otherLabel from one type shouldn't leak into the next.
@@ -61,18 +75,24 @@ async function submit() {
         : form.label
       : form.label.trim() || TYPE_META[form.type].labelHint
 
+  const payload = {
+    type: form.type,
+    amount,
+    label,
+    note: form.note.trim(),
+    date: form.date,
+    planned: form.planned || form.date > today,
+    walletId: form.walletId,
+  }
+
   submitError.value = ''
   submitting.value = true
   try {
-    await addTransaction({
-      type: form.type,
-      amount,
-      label,
-      note: form.note.trim(),
-      date: form.date,
-      planned: form.planned || form.date > today,
-      walletId: form.walletId,
-    })
+    if (props.editing) {
+      await updateTransaction(props.editing.id, payload)
+    } else {
+      await addTransaction(payload)
+    }
     emit('close')
   } catch (e) {
     submitError.value = e instanceof Error ? e.message : 'Could not save this entry.'
@@ -91,7 +111,7 @@ async function submit() {
       @submit.prevent="submit"
     >
       <div class="flex items-center justify-between mb-4">
-        <h2 class="text-base font-semibold">Add entry</h2>
+        <h2 class="text-base font-semibold">{{ editing ? 'Edit entry' : 'Add entry' }}</h2>
         <button type="button" class="text-sm" style="color: var(--paper-dim)" @click="emit('close')">Cancel</button>
       </div>
 
@@ -234,7 +254,7 @@ async function submit() {
         class="w-full py-3 rounded-xl font-medium text-sm disabled:opacity-50"
         style="background: var(--accent); color: var(--ink)"
       >
-        {{ submitting ? 'Saving…' : 'Save entry' }}
+        {{ submitting ? 'Saving…' : editing ? 'Save changes' : 'Save entry' }}
       </button>
     </form>
   </div>
