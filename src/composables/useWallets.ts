@@ -59,6 +59,22 @@ export function useWallets() {
     activeWalletId.value = wallet.id
   }
 
+  async function renameWallet(id: string, name: string) {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    if (state.wallets.some((w) => w.id !== id && w.name.toLowerCase() === trimmed.toLowerCase())) {
+      throw new Error(`A wallet named "${trimmed}" already exists.`)
+    }
+    if (!supabase) throw new Error('Supabase is not configured')
+
+    const { error } = await supabase.from('wallets').update({ name: trimmed }).eq('id', id)
+    if (error) {
+      throw error.code === '23505' ? new Error(`A wallet named "${trimmed}" already exists.`) : error
+    }
+    const wallet = state.wallets.find((w) => w.id === id)
+    if (wallet) wallet.name = trimmed
+  }
+
   async function removeWallet(id: string) {
     const wallet = state.wallets.find((w) => w.id === id)
     if (!wallet) return
@@ -140,6 +156,7 @@ export function useWallets() {
     activeWalletId,
     defaultWalletId,
     addWallet,
+    renameWallet,
     removeWallet,
     createDefaultWallet,
     importWallets,
