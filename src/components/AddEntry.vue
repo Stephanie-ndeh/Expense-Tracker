@@ -62,6 +62,8 @@ const types: { value: UiType; short: string }[] = [
   { value: 'save', short: 'Saved' },
   { value: 'withdraw', short: 'From savings' },
   { value: 'transfer', short: 'Transfer' },
+  { value: 'borrow', short: 'Borrowed' },
+  { value: 'payback', short: 'Repaid' },
 ]
 
 function canSelectType(value: UiType) {
@@ -74,12 +76,15 @@ function canSelectType(value: UiType) {
 const categorySuggestions = computed(() =>
   form.type === 'expense' || form.type === 'income' ? suggestedCategories(form.type) : [],
 )
-const peopleSuggestions = computed(() => (form.type === 'lend' || form.type === 'repay' ? suggestedPeople() : []))
+const isPersonType = (t: UiType) => t === 'lend' || t === 'repay' || t === 'borrow' || t === 'payback'
+const peopleSuggestions = computed(() => (isPersonType(form.type) ? suggestedPeople() : []))
 
-// Repay: show how much is currently owed to the typed person, if they have a lending history.
-const repayOwed = computed(() => {
-  if (form.type !== 'repay' || !form.label.trim()) return null
-  return personSummaries.value.find((p) => p.name.toLowerCase() === form.label.trim().toLowerCase()) ?? null
+// Repay/payback: show the running balance with the typed person, if there's any history.
+const debtHint = computed(() => {
+  if ((form.type !== 'repay' && form.type !== 'payback') || !form.label.trim()) return null
+  const match = personSummaries.value.find((p) => p.name.toLowerCase() === form.label.trim().toLowerCase())
+  if (!match) return null
+  return form.type === 'repay' ? { text: 'Owed', amount: match.netOwed } : { text: 'You owe', amount: match.netOwe }
 })
 
 // A stale label from one type shouldn't leak into the next.
@@ -103,7 +108,13 @@ async function submit() {
   }
 
   const typed = form.label.trim()
-  if (form.type === 'expense' || form.type === 'income' || form.type === 'repay') {
+  if (
+    form.type === 'expense' ||
+    form.type === 'income' ||
+    form.type === 'repay' ||
+    form.type === 'borrow' ||
+    form.type === 'payback'
+  ) {
     if (!typed) return
   }
 
@@ -137,7 +148,7 @@ async function submit() {
         const category = await findOrCreateCategory(typed, form.type)
         label = category.name
         categoryId = category.id
-      } else if (form.type === 'lend' || form.type === 'repay') {
+      } else if (isPersonType(form.type)) {
         if (typed) {
           const person = await findOrCreatePerson(typed)
           label = person.name
@@ -252,7 +263,10 @@ async function submit() {
         </datalist>
       </label>
 
-      <label v-if="form.type === 'lend' || form.type === 'repay'" class="block mb-4">
+      <label
+        v-if="form.type === 'lend' || form.type === 'repay' || form.type === 'borrow' || form.type === 'payback'"
+        class="block mb-4"
+      >
         <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">{{
           TYPE_META[form.type].labelHint
         }}</span>
@@ -260,7 +274,7 @@ async function submit() {
           v-model="form.label"
           type="text"
           list="person-suggestions"
-          :required="form.type === 'repay'"
+          :required="form.type !== 'lend'"
           placeholder="Type or pick a name"
           class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
           style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
@@ -268,8 +282,8 @@ async function submit() {
         <datalist id="person-suggestions">
           <option v-for="p in peopleSuggestions" :key="p.id" :value="p.name" />
         </datalist>
-        <p v-if="repayOwed" class="text-xs mt-1" style="color: var(--paper-dim)">
-          Owed {{ format(repayOwed.netOwed) }}
+        <p v-if="debtHint" class="text-xs mt-1" style="color: var(--paper-dim)">
+          {{ debtHint.text }} {{ format(debtHint.amount) }}
         </p>
       </label>
 

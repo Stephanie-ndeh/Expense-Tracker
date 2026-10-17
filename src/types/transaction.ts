@@ -1,5 +1,5 @@
 export type TransactionType =
-  'expense' | 'income' | 'lend' | 'repay' | 'save' | 'withdraw' | 'transfer_out' | 'transfer_in'
+  'expense' | 'income' | 'lend' | 'repay' | 'save' | 'withdraw' | 'transfer_out' | 'transfer_in' | 'borrow' | 'payback'
 
 export interface Transaction {
   id: string
@@ -22,7 +22,7 @@ export interface Transaction {
 
 export const TYPE_META: Record<
   TransactionType,
-  { verb: string; sign: 1 | -1; labelHint: string; group: 'cash' | 'lending' | 'savings' | 'transfer' }
+  { verb: string; sign: 1 | -1; labelHint: string; group: 'cash' | 'lending' | 'savings' | 'transfer' | 'debt' }
 > = {
   income: { verb: 'Received', sign: 1, labelHint: 'From / source', group: 'cash' },
   expense: { verb: 'Spent', sign: -1, labelHint: 'On what', group: 'cash' },
@@ -32,4 +32,6 @@ export const TYPE_META: Record<
   withdraw: { verb: 'Took from savings', sign: 1, labelHint: 'Reason (optional)', group: 'savings' },
   transfer_out: { verb: 'Transferred out', sign: -1, labelHint: 'To which wallet', group: 'transfer' },
   transfer_in: { verb: 'Transferred in', sign: 1, labelHint: 'From which wallet', group: 'transfer' },
+  borrow: { verb: 'Borrowed', sign: 1, labelHint: 'From whom', group: 'debt' },
+  payback: { verb: 'Repaid', sign: -1, labelHint: 'To whom', group: 'debt' },
 }

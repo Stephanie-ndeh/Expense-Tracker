@@ -27,25 +27,46 @@ function toggle(name: string) {
       </div>
 
       <p v-if="!personSummaries.length" class="text-sm py-6 text-center" style="color: var(--paper-dim)">
-        You haven't lent anyone money yet.
+        No lending or borrowing logged yet.
       </p>
 
       <div v-for="p in personSummaries" :key="p.name" class="border-b" style="border-color: var(--ink-line)">
         <button class="w-full flex items-center justify-between py-3 text-left" @click="toggle(p.name)">
-          <div>
+          <div class="min-w-0">
             <p class="text-sm font-medium">{{ p.name }}</p>
             <p class="text-xs" style="color: var(--paper-dim)">
-              Lent {{ format(p.lent) }} · Paid back {{ format(p.repaid) }}
+              <template v-if="p.lent || p.repaid"
+                >Lent {{ format(p.lent) }} · Paid back {{ format(p.repaid) }}</template
+              >
+              <template v-if="p.borrowed || p.paidBack">
+                <br v-if="p.lent || p.repaid" />
+                Borrowed {{ format(p.borrowed) }} · Repaid {{ format(p.paidBack) }}
+              </template>
             </p>
           </div>
-          <span
-            class="font-mono text-sm font-medium tabular-nums shrink-0 pl-3"
-            :style="{
-              color: p.netOwed > 0 ? 'var(--money-in)' : p.netOwed < 0 ? 'var(--money-out)' : 'var(--paper-dim)',
-            }"
-          >
-            {{ p.netOwed > 0 ? format(p.netOwed) : p.netOwed < 0 ? '−' + format(Math.abs(p.netOwed)) : 'Settled' }}
-          </span>
+          <div class="text-right shrink-0 pl-3">
+            <p v-if="p.netOwed > 0" class="font-mono text-sm font-medium tabular-nums" style="color: var(--money-in)">
+              {{ format(p.netOwed) }} owed to you
+            </p>
+            <p
+              v-else-if="p.netOwed < 0"
+              class="font-mono text-sm font-medium tabular-nums"
+              style="color: var(--money-out)"
+            >
+              {{ format(Math.abs(p.netOwed)) }} overpaid to you
+            </p>
+            <p v-if="p.netOwe > 0" class="font-mono text-sm font-medium tabular-nums" style="color: var(--money-out)">
+              {{ format(p.netOwe) }} you owe
+            </p>
+            <p
+              v-else-if="p.netOwe < 0"
+              class="font-mono text-sm font-medium tabular-nums"
+              style="color: var(--money-in)"
+            >
+              {{ format(Math.abs(p.netOwe)) }} overpaid by you
+            </p>
+            <p v-if="!p.netOwed && !p.netOwe" class="text-sm" style="color: var(--paper-dim)">Settled</p>
+          </div>
         </button>
 
         <div v-if="expanded === p.name" class="pb-3 pl-1">
@@ -55,9 +76,9 @@ function toggle(name: string) {
             </span>
             <span
               class="font-mono tabular-nums"
-              :style="{ color: t.type === 'lend' ? 'var(--money-out)' : 'var(--money-in)' }"
+              :style="{ color: TYPE_META[t.type].sign > 0 ? 'var(--money-in)' : 'var(--money-out)' }"
             >
-              {{ t.type === 'lend' ? '−' : '+' }}{{ format(t.amount) }}
+              {{ TYPE_META[t.type].sign > 0 ? '+' : '−' }}{{ format(t.amount) }}
             </span>
           </div>
         </div>

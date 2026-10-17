@@ -53,7 +53,10 @@ create table public.transactions (
   user_id uuid not null references auth.users (id) on delete cascade,
   wallet_id text not null,
   type text not null check (
-    type in ('expense', 'income', 'lend', 'repay', 'save', 'withdraw', 'transfer_out', 'transfer_in')
+    type in (
+      'expense', 'income', 'lend', 'repay', 'save', 'withdraw',
+      'transfer_out', 'transfer_in', 'borrow', 'payback'
+    )
   ),
   amount numeric not null check (amount > 0),
   date date not null,

@@ -3,18 +3,19 @@ import { useLedger } from '../composables/useLedger'
 import { useSettings } from '../composables/useSettings'
 
 const emit = defineEmits<{ openPeople: [] }>()
-const { totalOwedToYou, savings, plannedSpend } = useLedger()
+const { totalOwedToYou, totalOwedByYou, savings, plannedSpend } = useLedger()
 const { format } = useSettings()
 
 const cards = [
   { key: 'owed', label: 'Owed to you', value: () => totalOwedToYou.value, tint: 'var(--money-in)', clickable: true },
+  { key: 'owe', label: 'You owe', value: () => totalOwedByYou.value, tint: 'var(--money-out)', clickable: true },
   { key: 'savings', label: 'In savings', value: () => savings.value, tint: 'var(--accent)', clickable: false },
   { key: 'planned', label: 'Coming up', value: () => plannedSpend.value, tint: 'var(--money-out)', clickable: false },
 ] as const
 </script>
 
 <template>
-  <div class="grid grid-cols-3 gap-px" :style="{ background: 'var(--ink-line)' }">
+  <div class="grid grid-cols-2 gap-px" :style="{ background: 'var(--ink-line)' }">
     <component
       :is="c.clickable ? 'button' : 'div'"
       v-for="c in cards"
