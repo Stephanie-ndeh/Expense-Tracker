@@ -25,7 +25,17 @@ const showAdd = ref(false)
 const editingTransaction = ref<Transaction | null>(null)
 const showSettings = ref(false)
 const showPeople = ref(false)
-const { settings } = useSettings()
+const { settings, updateCurrency } = useSettings()
+const currencyError = ref('')
+
+async function saveCurrency() {
+  currencyError.value = ''
+  try {
+    await updateCurrency(settings.currency)
+  } catch (e) {
+    currencyError.value = e instanceof Error ? e.message : 'Could not save currency.'
+  }
+}
 const { exportData, exportCsv, importData } = useLedger()
 const { enabled: syncEnabled, loading: authLoading, isAuthenticated, userEmail, signOut } = useAuth()
 const { syncing, lastSyncedAt, error: syncError, syncNow } = useSync()
@@ -133,8 +143,10 @@ async function handleImportFile(e: Event) {
               type="text"
               class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
               style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+              @change="saveCurrency"
             />
           </label>
+          <p v-if="currencyError" class="text-xs -mt-3 mb-4" style="color: var(--money-out)">{{ currencyError }}</p>
 
           <div v-if="syncEnabled" class="border-t pt-4 mt-4" style="border-color: var(--ink-line)">
             <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Sync</span>

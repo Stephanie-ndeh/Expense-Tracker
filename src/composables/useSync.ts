@@ -3,6 +3,7 @@ import { supabase, supabaseEnabled } from '../lib/supabaseClient'
 import { useAuth } from './useAuth'
 import { useLedger, rowToTransaction } from './useLedger'
 import { useWallets, rowToWallet } from './useWallets'
+import { loadProfile, clearSettings } from './useSettings'
 
 const status = reactive({
   syncing: false,
@@ -23,11 +24,13 @@ async function loadAll() {
     const { replaceTransactions } = useLedger()
 
     const [{ data: walletRows, error: walletsError }, { data: txRows, error: txError }] = await Promise.all([
-      supabase.from('wallets').select('*'),
-      supabase.from('transactions').select('*'),
+      supabase.from('wallets').select('*').is('deleted_at', null),
+      supabase.from('transactions').select('*').is('deleted_at', null),
     ])
     if (walletsError) throw walletsError
     if (txError) throw txError
+
+    await loadProfile()
 
     replaceWallets((walletRows ?? []).map(rowToWallet))
     replaceTransactions((txRows ?? []).map(rowToTransaction))
@@ -45,6 +48,7 @@ async function loadAll() {
 function clearAll() {
   useWallets().clearWallets()
   useLedger().clearTransactions()
+  clearSettings()
   status.lastSyncedAt = null
   status.error = null
 }
