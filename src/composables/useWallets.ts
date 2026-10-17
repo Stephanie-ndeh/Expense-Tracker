@@ -71,7 +71,9 @@ export function useWallets() {
       .eq('wallet_id', id)
     if (countError) throw countError
     if (count) {
-      throw new Error(`This wallet still has ${count} ${count === 1 ? 'entry' : 'entries'} — delete or move them first.`)
+      throw new Error(
+        `This wallet still has ${count} ${count === 1 ? 'entry' : 'entries'} — delete or move them first.`,
+      )
     }
 
     const { error } = await supabase.from('wallets').delete().eq('id', id)

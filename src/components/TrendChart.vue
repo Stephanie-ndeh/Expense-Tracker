@@ -32,7 +32,11 @@ function barHeight(value: number) {
           />
           <div
             class="w-2.5 rounded-t-sm"
-            :style="{ height: barHeight(m.expense) + 'px', background: 'var(--money-out)', opacity: m.expense ? 1 : 0.15 }"
+            :style="{
+              height: barHeight(m.expense) + 'px',
+              background: 'var(--money-out)',
+              opacity: m.expense ? 1 : 0.15,
+            }"
             :title="format(m.expense)"
           />
         </div>

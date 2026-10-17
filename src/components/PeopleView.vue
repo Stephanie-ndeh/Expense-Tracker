@@ -23,7 +23,7 @@ function toggle(name: string) {
     >
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-base font-semibold">People</h2>
-        <button @click="emit('close')" class="text-sm" style="color: var(--paper-dim)">Close</button>
+        <button class="text-sm" style="color: var(--paper-dim)" @click="emit('close')">Close</button>
       </div>
 
       <p v-if="!personSummaries.length" class="text-sm py-6 text-center" style="color: var(--paper-dim)">
@@ -40,7 +40,9 @@ function toggle(name: string) {
           </div>
           <span
             class="font-mono text-sm font-medium tabular-nums shrink-0 pl-3"
-            :style="{ color: p.netOwed > 0 ? 'var(--money-in)' : p.netOwed < 0 ? 'var(--money-out)' : 'var(--paper-dim)' }"
+            :style="{
+              color: p.netOwed > 0 ? 'var(--money-in)' : p.netOwed < 0 ? 'var(--money-out)' : 'var(--paper-dim)',
+            }"
           >
             {{ p.netOwed > 0 ? format(p.netOwed) : p.netOwed < 0 ? '−' + format(Math.abs(p.netOwed)) : 'Settled' }}
           </span>

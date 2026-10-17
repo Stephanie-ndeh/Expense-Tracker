@@ -23,14 +23,16 @@ const showFrontedBanner = computed(() => activeWalletId.value !== 'all' && balan
     >
       {{ format(balance) }}
     </p>
-    <p class="text-sm mt-2" style="color: var(--paper-dim)">
-      {{ format(thisMonthSpend) }} spent so far this month
-    </p>
+    <p class="text-sm mt-2" style="color: var(--paper-dim)">{{ format(thisMonthSpend) }} spent so far this month</p>
 
     <div
       v-if="showFrontedBanner"
       class="mt-4 rounded-xl px-4 py-3 text-sm font-medium"
-      style="background: color-mix(in srgb, var(--money-out) 18%, transparent); color: var(--money-out); border: 1px solid var(--money-out)"
+      style="
+        background: color-mix(in srgb, var(--money-out) 18%, transparent);
+        color: var(--money-out);
+        border: 1px solid var(--money-out);
+      "
     >
       You've fronted {{ format(Math.abs(balance)) }} on {{ activeWalletName }} — remember to claim it back.
     </div>

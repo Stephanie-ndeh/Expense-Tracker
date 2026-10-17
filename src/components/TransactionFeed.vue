@@ -32,6 +32,11 @@ async function handleMarkSettled(id: string) {
     settleError.value = e instanceof Error ? e.message : 'Could not update this entry.'
   }
 }
+
+function cancelDelete() {
+  pendingDelete.value = null
+  deleteError.value = ''
+}
 </script>
 
 <template>
@@ -50,8 +55,14 @@ async function handleMarkSettled(id: string) {
       </div>
       <div class="flex items-center gap-3 shrink-0">
         <span class="font-mono text-sm tabular-nums" style="color: var(--paper-dim)">{{ format(t.amount) }}</span>
-        <button @click="handleMarkSettled(t.id)" class="text-xs px-2 py-1 rounded-md" style="background: var(--ink-raised); color: var(--accent)">Mark done</button>
-        <button @click="pendingDelete = t" class="text-xs" style="color: var(--paper-dim)">✕</button>
+        <button
+          class="text-xs px-2 py-1 rounded-md"
+          style="background: var(--ink-raised); color: var(--accent)"
+          @click="handleMarkSettled(t.id)"
+        >
+          Mark done
+        </button>
+        <button class="text-xs" style="color: var(--paper-dim)" @click="pendingDelete = t">✕</button>
       </div>
     </div>
   </div>
@@ -60,7 +71,7 @@ async function handleMarkSettled(id: string) {
     v-if="pendingDelete"
     :transaction="pendingDelete"
     :error="deleteError"
-    @cancel="pendingDelete = null; deleteError = ''"
+    @cancel="cancelDelete"
     @confirm="confirmDelete"
   />
 </template>

@@ -86,13 +86,13 @@ async function submit() {
   <div class="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center">
     <div class="absolute inset-0 bg-black/60" @click="emit('close')" />
     <form
-      @submit.prevent="submit"
       class="relative w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl p-5 pb-8 sm:pb-5 max-h-[90vh] overflow-y-auto"
       style="background: var(--ink-raised)"
+      @submit.prevent="submit"
     >
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-base font-semibold">Add entry</h2>
-        <button type="button" @click="emit('close')" class="text-sm" style="color: var(--paper-dim)">Cancel</button>
+        <button type="button" class="text-sm" style="color: var(--paper-dim)" @click="emit('close')">Cancel</button>
       </div>
 
       <div class="grid grid-cols-3 gap-2 mb-5">
@@ -100,19 +100,19 @@ async function submit() {
           v-for="t in types"
           :key="t.value"
           type="button"
-          @click="form.type = t.value"
           class="text-xs py-2 rounded-lg border transition-colors"
           :style="
             form.type === t.value
               ? { background: 'var(--paper)', color: 'var(--ink)', borderColor: 'var(--paper)' }
               : { borderColor: 'var(--ink-line)', color: 'var(--paper-dim)' }
           "
+          @click="form.type = t.value"
         >
           {{ t.short }}
         </button>
       </div>
 
-      <label class="block mb-4" v-if="wallets.length > 1">
+      <label v-if="wallets.length > 1" class="block mb-4">
         <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Wallet</span>
         <select
           v-model="form.walletId"
@@ -140,7 +140,9 @@ async function submit() {
       </label>
 
       <label v-if="form.type === 'expense' || form.type === 'income'" class="block mb-4">
-        <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">{{ TYPE_META[form.type].labelHint }}</span>
+        <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">{{
+          TYPE_META[form.type].labelHint
+        }}</span>
         <select
           v-model="form.label"
           required
@@ -163,7 +165,9 @@ async function submit() {
       </label>
 
       <label v-if="form.type === 'repay'" class="block mb-4">
-        <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">{{ TYPE_META[form.type].labelHint }}</span>
+        <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">{{
+          TYPE_META[form.type].labelHint
+        }}</span>
         <select
           v-model="form.label"
           required
@@ -172,14 +176,22 @@ async function submit() {
           style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
         >
           <option value="" disabled>
-            {{ personSummaries.length ? "Select who you're paying back" : "No one to repay yet — log a 'Lent out' entry first" }}
+            {{
+              personSummaries.length
+                ? "Select who you're paying back"
+                : "No one to repay yet — log a 'Lent out' entry first"
+            }}
           </option>
-          <option v-for="p in personSummaries" :key="p.name" :value="p.name">{{ p.name }} — owed {{ format(p.netOwed) }}</option>
+          <option v-for="p in personSummaries" :key="p.name" :value="p.name">
+            {{ p.name }} — owed {{ format(p.netOwed) }}
+          </option>
         </select>
       </label>
 
       <label v-if="form.type === 'lend' || form.type === 'save' || form.type === 'withdraw'" class="block mb-4">
-        <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">{{ TYPE_META[form.type].labelHint }}</span>
+        <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">{{
+          TYPE_META[form.type].labelHint
+        }}</span>
         <input
           v-model="form.label"
           type="text"

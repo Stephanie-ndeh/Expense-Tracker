@@ -33,6 +33,11 @@ function close() {
   offset.value = 0
 }
 defineExpose({ close })
+
+function handleDelete() {
+  emit('delete')
+  close()
+}
 </script>
 
 <template>
@@ -42,7 +47,7 @@ defineExpose({ close })
         type="button"
         class="flex-1 flex items-center justify-center text-xs font-medium"
         style="background: var(--money-out); color: var(--ink)"
-        @click="emit('delete'); close()"
+        @click="handleDelete"
       >
         Delete
       </button>

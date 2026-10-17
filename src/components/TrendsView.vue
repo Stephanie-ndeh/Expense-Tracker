@@ -19,14 +19,18 @@ function delta(current: number, previous: number) {
   return Math.round(((current - previous) / previous) * 100)
 }
 
-const expenseDelta = computed(() => delta(monthComparison.value.expense.current, monthComparison.value.expense.previous))
+const expenseDelta = computed(() =>
+  delta(monthComparison.value.expense.current, monthComparison.value.expense.previous),
+)
 const incomeDelta = computed(() => delta(monthComparison.value.income.current, monthComparison.value.income.previous))
 </script>
 
 <template>
   <div class="min-h-screen pb-10" style="background: var(--ink); color: var(--paper)">
     <header class="flex items-center gap-3 px-5 pt-5 pb-2">
-      <button @click="emit('back')" aria-label="Back" class="text-lg leading-none" style="color: var(--paper-dim)">‹</button>
+      <button aria-label="Back" class="text-lg leading-none" style="color: var(--paper-dim)" @click="emit('back')">
+        ‹
+      </button>
       <h1 class="text-sm font-semibold">Trends</h1>
     </header>
 
@@ -34,20 +38,24 @@ const incomeDelta = computed(() => delta(monthComparison.value.income.current, m
     <div class="px-5 pt-4">
       <div class="flex items-center justify-between mb-4">
         <div class="flex items-center gap-3 text-[11px]" style="color: var(--paper-dim)">
-          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full inline-block" style="background: var(--money-in)" /> Income</span>
-          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full inline-block" style="background: var(--money-out)" /> Spent</span>
+          <span class="flex items-center gap-1"
+            ><span class="w-2 h-2 rounded-full inline-block" style="background: var(--money-in)" /> Income</span
+          >
+          <span class="flex items-center gap-1"
+            ><span class="w-2 h-2 rounded-full inline-block" style="background: var(--money-out)" /> Spent</span
+          >
         </div>
         <div class="flex gap-1">
           <button
             v-for="m in [6, 12]"
             :key="m"
-            @click="months = m"
             class="text-[11px] px-2 py-1 rounded-md border"
             :style="
               months === m
                 ? { background: 'var(--paper)', color: 'var(--ink)', borderColor: 'var(--paper)' }
                 : { borderColor: 'var(--ink-line)', color: 'var(--paper-dim)' }
             "
+            @click="months = m"
           >
             {{ m }}mo
           </button>
@@ -59,12 +67,20 @@ const incomeDelta = computed(() => delta(monthComparison.value.income.current, m
           <div class="flex items-end gap-1 flex-1 w-full justify-center">
             <div
               class="w-2 rounded-t-sm"
-              :style="{ height: barHeight(m.income) + 'px', background: 'var(--money-in)', opacity: m.income ? 1 : 0.15 }"
+              :style="{
+                height: barHeight(m.income) + 'px',
+                background: 'var(--money-in)',
+                opacity: m.income ? 1 : 0.15,
+              }"
               :title="format(m.income)"
             />
             <div
               class="w-2 rounded-t-sm"
-              :style="{ height: barHeight(m.expense) + 'px', background: 'var(--money-out)', opacity: m.expense ? 1 : 0.15 }"
+              :style="{
+                height: barHeight(m.expense) + 'px',
+                background: 'var(--money-out)',
+                opacity: m.expense ? 1 : 0.15,
+              }"
               :title="format(m.expense)"
             />
           </div>
@@ -105,7 +121,9 @@ const incomeDelta = computed(() => delta(monthComparison.value.income.current, m
       <h3 class="text-xs uppercase tracking-wide mb-2" style="color: var(--paper-dim)">Savings</h3>
       <div class="flex items-baseline justify-between py-3 border-b" style="border-color: var(--ink-line)">
         <span class="text-sm" style="color: var(--paper-dim)">Total saved so far</span>
-        <span class="font-mono text-lg font-medium tabular-nums" style="color: var(--accent)">{{ format(savings) }}</span>
+        <span class="font-mono text-lg font-medium tabular-nums" style="color: var(--accent)">{{
+          format(savings)
+        }}</span>
       </div>
     </div>
 
@@ -126,7 +144,14 @@ const incomeDelta = computed(() => delta(monthComparison.value.income.current, m
           <span
             v-if="c.previous"
             class="text-xs"
-            :style="{ color: c.current > c.previous ? 'var(--money-out)' : c.current < c.previous ? 'var(--money-in)' : 'var(--paper-dim)' }"
+            :style="{
+              color:
+                c.current > c.previous
+                  ? 'var(--money-out)'
+                  : c.current < c.previous
+                    ? 'var(--money-in)'
+                    : 'var(--paper-dim)',
+            }"
           >
             {{ c.current > c.previous ? '↑' : c.current < c.previous ? '↓' : '·' }} was {{ format(c.previous) }}
           </span>
