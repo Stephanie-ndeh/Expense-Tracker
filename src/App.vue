@@ -24,7 +24,7 @@ const showAdd = ref(false)
 const showSettings = ref(false)
 const showPeople = ref(false)
 const { settings } = useSettings()
-const { exportData, importData } = useLedger()
+const { exportData, exportCsv, importData } = useLedger()
 const { enabled: syncEnabled, loading: authLoading, isAuthenticated, userEmail, signOut } = useAuth()
 const { syncing, lastSyncedAt, error: syncError, syncNow } = useSync()
 
@@ -39,15 +39,24 @@ function lastSyncedLabel() {
 const importFile = ref<HTMLInputElement | null>(null)
 const importMessage = ref('')
 
-function downloadBackup() {
-  const blob = new Blob([exportData()], { type: 'application/json' })
+function downloadBlob(content: string, mime: string, filename: string) {
+  const blob = new Blob([content], { type: mime })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
-  const stamp = new Date().toISOString().slice(0, 10)
   a.href = url
-  a.download = `reckon-backup-${stamp}.json`
+  a.download = filename
   a.click()
   URL.revokeObjectURL(url)
+}
+
+function downloadCsv() {
+  const stamp = new Date().toISOString().slice(0, 10)
+  downloadBlob(exportCsv(), 'text/csv', `reckon-backup-${stamp}.csv`)
+}
+
+function downloadBackup() {
+  const stamp = new Date().toISOString().slice(0, 10)
+  downloadBlob(exportData(), 'application/json', `reckon-backup-${stamp}.json`)
 }
 
 function triggerImport() {
@@ -148,22 +157,33 @@ async function handleImportFile(e: Event) {
           <p class="text-xs mt-1 mb-3" style="color: var(--paper-dim)">
             {{ syncEnabled ? 'Your data syncs to your account, but a local export is still a good habit before switching devices.' : 'Your data only lives on this device. Export it now and then so you never lose it.' }}
           </p>
-          <div class="flex gap-2">
-            <button
-              @click="downloadBackup"
-              class="flex-1 py-2 rounded-lg text-xs font-medium border"
-              style="border-color: var(--ink-line); color: var(--paper)"
-            >
-              Export backup
-            </button>
-            <button
-              @click="triggerImport"
-              class="flex-1 py-2 rounded-lg text-xs font-medium border"
-              style="border-color: var(--ink-line); color: var(--paper)"
-            >
-              Import backup
-            </button>
-          </div>
+          <button
+            @click="downloadCsv"
+            class="w-full py-2 rounded-lg text-xs font-medium border"
+            style="border-color: var(--ink-line); color: var(--paper)"
+          >
+            Export backup (CSV)
+          </button>
+
+          <details class="mt-3">
+            <summary class="text-xs cursor-pointer select-none" style="color: var(--paper-dim)">Advanced</summary>
+            <div class="flex gap-2 mt-2">
+              <button
+                @click="downloadBackup"
+                class="flex-1 py-2 rounded-lg text-xs font-medium border"
+                style="border-color: var(--ink-line); color: var(--paper)"
+              >
+                Export JSON
+              </button>
+              <button
+                @click="triggerImport"
+                class="flex-1 py-2 rounded-lg text-xs font-medium border"
+                style="border-color: var(--ink-line); color: var(--paper)"
+              >
+                Import JSON
+              </button>
+            </div>
+          </details>
           <input ref="importFile" type="file" accept="application/json" class="hidden" @change="handleImportFile" />
           <p v-if="importMessage" class="text-xs mt-2" style="color: var(--accent)">{{ importMessage }}</p>
         </div>

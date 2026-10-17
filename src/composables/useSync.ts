@@ -49,28 +49,22 @@ function clearAll() {
   status.error = null
 }
 
-let intervalId: ReturnType<typeof setInterval> | null = null
-
 if (supabaseEnabled) {
   const { isAuthenticated } = useAuth()
   watch(
     isAuthenticated,
     (loggedIn) => {
-      if (loggedIn) {
-        void loadAll()
-        if (!intervalId) intervalId = setInterval(() => void loadAll(), 2 * 60 * 1000)
-        window.addEventListener('focus', () => void loadAll())
-        window.addEventListener('online', () => void loadAll())
-      } else {
-        clearAll()
-        if (intervalId) {
-          clearInterval(intervalId)
-          intervalId = null
-        }
-      }
+      if (loggedIn) void loadAll()
+      else clearAll()
     },
     { immediate: true },
   )
+  window.addEventListener('focus', () => {
+    if (isAuthenticated.value) void loadAll()
+  })
+  window.addEventListener('online', () => {
+    if (isAuthenticated.value) void loadAll()
+  })
 }
 
 export function useSync() {

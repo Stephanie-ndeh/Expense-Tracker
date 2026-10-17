@@ -292,6 +292,23 @@ export function useLedger() {
     )
   }
 
+  function csvCell(value: string | number) {
+    const s = String(value)
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+  }
+
+  function exportCsv() {
+    const walletName = (id: string) => wallets.value.find((w) => w.id === id)?.name ?? id
+    const header = ['date', 'type', 'wallet', 'label', 'note', 'amount', 'planned']
+    const rows = state.transactions
+      .slice()
+      .sort((a, b) => a.date.localeCompare(b.date) || a.createdAt - b.createdAt)
+      .map((t) =>
+        [t.date, t.type, walletName(t.walletId), t.label, t.note, t.amount, t.planned ? 'yes' : 'no'].map(csvCell).join(','),
+      )
+    return [header.join(','), ...rows].join('\n')
+  }
+
   async function importData(json: string) {
     if (!supabase) throw new Error('Supabase is not configured')
     const userId = await getUserId()
@@ -348,6 +365,7 @@ export function useLedger() {
     monthComparison,
     categoryComparison,
     exportData,
+    exportCsv,
     importData,
     replaceTransactions,
     clearTransactions,
