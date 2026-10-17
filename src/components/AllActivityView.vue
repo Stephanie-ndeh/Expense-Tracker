@@ -262,7 +262,8 @@ function dayLabel(date: string) {
           <div class="min-w-0">
             <p class="text-sm truncate">{{ t.label }}</p>
             <p class="text-xs" style="color: var(--paper-dim)">
-              {{ dayLabel(t.date) }} · {{ TYPE_META[t.type].verb }}<template v-if="t.note"> · {{ t.note }}</template>
+              {{ dayLabel(t.date) }} · {{ TYPE_META[t.type].verb }}<template v-if="t.note"> · {{ t.note }}</template
+              ><template v-if="t.pendingSync"> · <span style="color: var(--accent)">Pending sync</span></template>
             </p>
           </div>
           <span

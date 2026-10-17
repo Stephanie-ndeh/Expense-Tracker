@@ -57,7 +57,10 @@ function cancelDelete() {
       <div class="flex items-center justify-between py-2.5">
         <div class="min-w-0">
           <p class="text-sm truncate">{{ t.label }}</p>
-          <p class="text-xs" style="color: var(--paper-dim)">{{ t.date }} · {{ TYPE_META[t.type].verb }}</p>
+          <p class="text-xs" style="color: var(--paper-dim)">
+            {{ t.date }} · {{ TYPE_META[t.type].verb
+            }}<template v-if="t.pendingSync"> · <span style="color: var(--accent)">Pending sync</span></template>
+          </p>
         </div>
         <div class="flex items-center gap-3 shrink-0">
           <span class="font-mono text-sm tabular-nums" style="color: var(--paper-dim)">{{ format(t.amount) }}</span>

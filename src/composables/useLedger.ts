@@ -7,9 +7,14 @@ import { useWallets } from './useWallets'
 import { useCategories } from './useCategories'
 import { usePeople } from './usePeople'
 import { supabase } from '../lib/supabaseClient'
+import { enqueueMutation, getQueuedMutations, removeQueuedMutation } from '../lib/offlineQueue'
 
 function uid() {
   return crypto.randomUUID()
+}
+
+function isOnline() {
+  return typeof navigator === 'undefined' || navigator.onLine
 }
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -68,6 +73,37 @@ async function getUserId(): Promise<string | null> {
   if (!supabase) return null
   const { data } = await supabase.auth.getUser()
   return data.user?.id ?? null
+}
+
+/**
+ * Keeps the offline queue minimal: editing/deleting a row that's itself still only a
+ * queued, never-synced 'add' rewrites or cancels that 'add' directly, instead of stacking
+ * a separate entry for an id Supabase has never seen. A newer update also supersedes any
+ * stale queued update for the same id.
+ */
+async function enqueueTransactionMutation(
+  id: string,
+  kind: 'update' | 'remove',
+  payload: { id: string; patch?: Record<string, unknown> },
+) {
+  const queued = await getQueuedMutations()
+  const existingAdd = queued.find((q) => q.kind === 'add' && (q.payload as Transaction).id === id)
+
+  if (existingAdd) {
+    if (kind === 'remove') {
+      await removeQueuedMutation(existingAdd.id)
+      return
+    }
+    const merged: Transaction = { ...(existingAdd.payload as Transaction), ...payload.patch }
+    await removeQueuedMutation(existingAdd.id)
+    await enqueueMutation({ kind: 'add', payload: merged })
+    return
+  }
+
+  const staleUpdates = queued.filter((q) => q.kind === 'update' && (q.payload as { id: string }).id === id)
+  for (const stale of staleUpdates) await removeQueuedMutation(stale.id)
+
+  await enqueueMutation({ kind, payload })
 }
 
 const state = reactive({
@@ -184,22 +220,40 @@ export function useLedger() {
     planned: boolean
     walletId: string
   }) {
+    const t: Transaction = { id: uid(), createdAt: Date.now(), transferId: null, ...input }
+
+    if (!isOnline()) {
+      await enqueueMutation({ kind: 'add', payload: t })
+      state.transactions.push({ ...t, pendingSync: true })
+      return
+    }
+
     if (!supabase) throw new Error('Supabase is not configured')
     const userId = await getUserId()
     if (!userId) throw new Error('Not signed in')
 
-    const t: Transaction = { id: uid(), createdAt: Date.now(), transferId: null, ...input }
     const { error } = await supabase.from('transactions').insert(transactionToRow(t, userId))
     if (error) throw error
     state.transactions.push(t)
   }
 
-  /** Transfer-aware: a transfer's two rows share a transfer_id and are removed together in one statement. */
+  /**
+   * Transfer-aware: a transfer's two rows share a transfer_id and are removed together in
+   * one statement. Transfers are always online-only (out of Phase 9's offline scope) — only
+   * a plain, non-transfer row can be queued while offline.
+   */
   async function removeTransaction(id: string) {
-    if (!supabase) throw new Error('Supabase is not configured')
     const existing = state.transactions.find((t) => t.id === id)
     const transferId = existing?.transferId ?? null
 
+    if (!transferId && !isOnline()) {
+      await enqueueTransactionMutation(id, 'remove', { id })
+      const idx = state.transactions.findIndex((t) => t.id === id)
+      if (idx !== -1) state.transactions.splice(idx, 1)
+      return
+    }
+
+    if (!supabase) throw new Error('Supabase is not configured')
     const query = supabase.from('transactions').update({ deleted_at: new Date().toISOString() })
     const { error } = transferId ? await query.eq('transfer_id', transferId) : await query.eq('id', id)
     if (error) throw error
@@ -226,6 +280,13 @@ export function useLedger() {
       walletId: string
     },
   ) {
+    if (!isOnline()) {
+      await enqueueTransactionMutation(id, 'update', { id, patch })
+      const t = state.transactions.find((t) => t.id === id)
+      if (t) Object.assign(t, patch, { pendingSync: true })
+      return
+    }
+
     if (!supabase) throw new Error('Supabase is not configured')
     const { error } = await supabase
       .from('transactions')
@@ -254,10 +315,19 @@ export function useLedger() {
 
   /** Transfer-aware: both legs are marked settled together in one statement. */
   async function markSettled(id: string) {
-    if (!supabase) throw new Error('Supabase is not configured')
     const existing = state.transactions.find((t) => t.id === id)
     const transferId = existing?.transferId ?? null
 
+    if (!transferId && !isOnline()) {
+      await enqueueTransactionMutation(id, 'update', { id, patch: { planned: false } })
+      if (existing) {
+        existing.planned = false
+        existing.pendingSync = true
+      }
+      return
+    }
+
+    if (!supabase) throw new Error('Supabase is not configured')
     const query = supabase.from('transactions').update({ planned: false })
     const { error } = transferId ? await query.eq('transfer_id', transferId) : await query.eq('id', id)
     if (error) throw error
@@ -546,6 +616,62 @@ export function useLedger() {
     state.transactions = []
   }
 
+  const pendingSyncCount = computed(() => state.transactions.filter((t) => t.pendingSync).length)
+
+  /**
+   * Replays the offline queue against Supabase, in order, continuing past individual
+   * failures so one bad item can't block the rest. Callers are expected to immediately
+   * follow a successful flush with a fresh loadAll() — that replace is what clears
+   * `pendingSync` flags, not this function.
+   */
+  async function flushPendingTransactions(): Promise<{ succeeded: number; failed: number }> {
+    if (!supabase) return { succeeded: 0, failed: 0 }
+    const userId = await getUserId()
+    if (!userId) return { succeeded: 0, failed: 0 }
+
+    const queued = await getQueuedMutations()
+    let succeeded = 0
+    let failed = 0
+
+    for (const item of queued) {
+      try {
+        if (item.kind === 'add') {
+          const { error } = await supabase
+            .from('transactions')
+            .insert(transactionToRow(item.payload as Transaction, userId))
+          if (error) throw error
+        } else if (item.kind === 'update') {
+          const { id, patch } = item.payload as { id: string; patch: Record<string, unknown> }
+          const row: Record<string, unknown> = {}
+          if ('type' in patch) row.type = patch.type
+          if ('amount' in patch) row.amount = patch.amount
+          if ('date' in patch) row.date = patch.date
+          if ('note' in patch) row.note = patch.note
+          if ('label' in patch) row.label = patch.label
+          if ('categoryId' in patch) row.category_id = patch.categoryId
+          if ('personId' in patch) row.person_id = patch.personId
+          if ('planned' in patch) row.planned = patch.planned
+          if ('walletId' in patch) row.wallet_id = patch.walletId
+          const { error } = await supabase.from('transactions').update(row).eq('id', id)
+          if (error) throw error
+        } else {
+          const { id } = item.payload as { id: string }
+          const { error } = await supabase
+            .from('transactions')
+            .update({ deleted_at: new Date().toISOString() })
+            .eq('id', id)
+          if (error) throw error
+        }
+        await removeQueuedMutation(item.id)
+        succeeded++
+      } catch {
+        failed++
+      }
+    }
+
+    return { succeeded, failed }
+  }
+
   return {
     transactions,
     upcoming,
@@ -560,6 +686,8 @@ export function useLedger() {
     addTransaction,
     removeTransaction,
     updateTransaction,
+    pendingSyncCount,
+    flushPendingTransactions,
     addTransfer,
     updateTransfer,
     transferSibling,

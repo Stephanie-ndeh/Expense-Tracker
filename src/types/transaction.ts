@@ -18,6 +18,8 @@ export interface Transaction {
   /** true = hasn't happened yet, excluded from balance, shown in "coming up" */
   planned: boolean
   createdAt: number
+  /** client-only — true while this row (or an edit/delete of it) is still queued offline, never sent to or read from Supabase */
+  pendingSync?: boolean
 }
 
 export const TYPE_META: Record<
