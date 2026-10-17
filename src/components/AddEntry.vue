@@ -5,34 +5,23 @@ import { TYPE_META } from '../types/transaction'
 import { useLedger } from '../composables/useLedger'
 import { useSettings } from '../composables/useSettings'
 import { useWallets } from '../composables/useWallets'
+import { useCategories } from '../composables/useCategories'
+import { usePeople } from '../composables/usePeople'
 
 const props = defineProps<{ editing?: Transaction | null }>()
 const emit = defineEmits<{ close: [] }>()
-const { addTransaction, updateTransaction, personSummaries } = useLedger()
+const { addTransaction, updateTransaction, suggestedCategories, suggestedPeople, personSummaries } = useLedger()
 const { format } = useSettings()
 const { wallets, activeWalletId } = useWallets()
+const { findOrCreateCategory } = useCategories()
+const { findOrCreatePerson } = usePeople()
 
 const today = new Date().toISOString().slice(0, 10)
-
-const EXPENSE_CATEGORIES = ['Food', 'Transport', 'Shopping', 'Airtime/Data', 'Bills', 'Family/Support', 'Other']
-const INCOME_CATEGORIES = ['Salary', 'Gifted', 'Side job', 'Refund', 'Borrowed', 'Other']
-
-function initialLabelFields(t: Transaction | null | undefined) {
-  if (!t) return { label: '', otherLabel: '' }
-  if (t.type === 'expense' || t.type === 'income') {
-    const categories = t.type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES
-    return categories.includes(t.label) ? { label: t.label, otherLabel: '' } : { label: 'Other', otherLabel: t.label }
-  }
-  return { label: t.label, otherLabel: '' }
-}
-
-const initialLabel = initialLabelFields(props.editing)
 
 const form = reactive({
   type: props.editing?.type ?? ('expense' as TransactionType),
   amount: props.editing ? String(props.editing.amount) : '',
-  label: initialLabel.label,
-  otherLabel: initialLabel.otherLabel,
+  label: props.editing?.label ?? '',
   note: props.editing?.note ?? '',
   date: props.editing?.date ?? today,
   planned: props.editing?.planned ?? false,
@@ -49,14 +38,22 @@ const types: { value: TransactionType; short: string }[] = [
   { value: 'withdraw', short: 'From savings' },
 ]
 
-const categoryOptions = computed(() => (form.type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES))
+const categorySuggestions = computed(() =>
+  form.type === 'expense' || form.type === 'income' ? suggestedCategories(form.type) : [],
+)
+const peopleSuggestions = computed(() => (form.type === 'lend' || form.type === 'repay' ? suggestedPeople() : []))
 
-// A stale category/person/otherLabel from one type shouldn't leak into the next.
+// Repay: show how much is currently owed to the typed person, if they have a lending history.
+const repayOwed = computed(() => {
+  if (form.type !== 'repay' || !form.label.trim()) return null
+  return personSummaries.value.find((p) => p.name.toLowerCase() === form.label.trim().toLowerCase()) ?? null
+})
+
+// A stale label from one type shouldn't leak into the next.
 watch(
   () => form.type,
   () => {
     form.label = ''
-    form.otherLabel = ''
   },
 )
 
@@ -66,28 +63,44 @@ const submitError = ref('')
 async function submit() {
   const amount = parseFloat(form.amount)
   if (!amount || amount <= 0) return
-  if ((form.type === 'expense' || form.type === 'income' || form.type === 'repay') && !form.label) return
-
-  const label =
-    form.type === 'expense' || form.type === 'income'
-      ? form.label === 'Other'
-        ? form.otherLabel.trim() || 'Other'
-        : form.label
-      : form.label.trim() || TYPE_META[form.type].labelHint
-
-  const payload = {
-    type: form.type,
-    amount,
-    label,
-    note: form.note.trim(),
-    date: form.date,
-    planned: form.planned || form.date > today,
-    walletId: form.walletId,
-  }
+  const typed = form.label.trim()
+  if ((form.type === 'expense' || form.type === 'income' || form.type === 'repay') && !typed) return
 
   submitError.value = ''
   submitting.value = true
   try {
+    let label = typed
+    let categoryId: string | null = null
+    let personId: string | null = null
+
+    if (form.type === 'expense' || form.type === 'income') {
+      const category = await findOrCreateCategory(typed, form.type)
+      label = category.name
+      categoryId = category.id
+    } else if (form.type === 'lend' || form.type === 'repay') {
+      if (typed) {
+        const person = await findOrCreatePerson(typed)
+        label = person.name
+        personId = person.id
+      } else {
+        label = TYPE_META[form.type].labelHint
+      }
+    } else {
+      label = typed || TYPE_META[form.type].labelHint
+    }
+
+    const payload = {
+      type: form.type,
+      amount,
+      label,
+      note: form.note.trim(),
+      categoryId,
+      personId,
+      date: form.date,
+      planned: form.planned || form.date > today,
+      walletId: form.walletId,
+    }
+
     if (props.editing) {
       await updateTransaction(props.editing.id, payload)
     } else {
@@ -163,52 +176,42 @@ async function submit() {
         <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">{{
           TYPE_META[form.type].labelHint
         }}</span>
-        <select
-          v-model="form.label"
-          required
-          class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
-          style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
-        >
-          <option value="" disabled>Select a category</option>
-          <option v-for="c in categoryOptions" :key="c" :value="c">{{ c }}</option>
-        </select>
-      </label>
-
-      <label v-if="(form.type === 'expense' || form.type === 'income') && form.label === 'Other'" class="block mb-4">
-        <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Specify (optional)</span>
         <input
-          v-model="form.otherLabel"
+          v-model="form.label"
           type="text"
+          list="category-suggestions"
+          required
+          placeholder="Type or pick a category"
           class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
           style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
         />
+        <datalist id="category-suggestions">
+          <option v-for="c in categorySuggestions" :key="c.id" :value="c.name" />
+        </datalist>
       </label>
 
-      <label v-if="form.type === 'repay'" class="block mb-4">
+      <label v-if="form.type === 'lend' || form.type === 'repay'" class="block mb-4">
         <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">{{
           TYPE_META[form.type].labelHint
         }}</span>
-        <select
+        <input
           v-model="form.label"
-          required
-          :disabled="!personSummaries.length"
+          type="text"
+          list="person-suggestions"
+          :required="form.type === 'repay'"
+          placeholder="Type or pick a name"
           class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
           style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
-        >
-          <option value="" disabled>
-            {{
-              personSummaries.length
-                ? "Select who you're paying back"
-                : "No one to repay yet — log a 'Lent out' entry first"
-            }}
-          </option>
-          <option v-for="p in personSummaries" :key="p.name" :value="p.name">
-            {{ p.name }} — owed {{ format(p.netOwed) }}
-          </option>
-        </select>
+        />
+        <datalist id="person-suggestions">
+          <option v-for="p in peopleSuggestions" :key="p.id" :value="p.name" />
+        </datalist>
+        <p v-if="repayOwed" class="text-xs mt-1" style="color: var(--paper-dim)">
+          Owed {{ format(repayOwed.netOwed) }}
+        </p>
       </label>
 
-      <label v-if="form.type === 'lend' || form.type === 'save' || form.type === 'withdraw'" class="block mb-4">
+      <label v-if="form.type === 'save' || form.type === 'withdraw'" class="block mb-4">
         <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">{{
           TYPE_META[form.type].labelHint
         }}</span>
