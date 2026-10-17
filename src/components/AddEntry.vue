@@ -7,6 +7,8 @@ import { useSettings } from '../composables/useSettings'
 import { useWallets } from '../composables/useWallets'
 import { useCategories } from '../composables/useCategories'
 import { usePeople } from '../composables/usePeople'
+import { useRecurring } from '../composables/useRecurring'
+import type { RecurringFrequency } from '../types/recurring'
 
 type UiType = TransactionType | 'transfer'
 
@@ -26,6 +28,7 @@ const { format } = useSettings()
 const { wallets, activeWalletId } = useWallets()
 const { findOrCreateCategory } = useCategories()
 const { findOrCreatePerson } = usePeople()
+const { addRule } = useRecurring()
 
 const today = new Date().toISOString().slice(0, 10)
 
@@ -52,6 +55,9 @@ const form = reactive({
   walletId: props.editing?.walletId ?? defaultWalletId,
   fromWalletId: editingOutLeg?.walletId ?? defaultWalletId,
   toWalletId: editingInLeg?.walletId ?? defaultToWalletId,
+  repeat: false,
+  frequency: 'monthly' as RecurringFrequency,
+  endDate: '',
 })
 
 const types: { value: UiType; short: string }[] = [
@@ -104,6 +110,11 @@ async function submit() {
 
   if (form.type === 'transfer' && !props.editing && form.fromWalletId === form.toWalletId) {
     submitError.value = 'Pick two different wallets.'
+    return
+  }
+
+  if (form.repeat && !props.editing && form.endDate && form.endDate < form.date) {
+    submitError.value = 'End date must be on or after the start date.'
     return
   }
 
@@ -160,22 +171,37 @@ async function submit() {
         label = typed || TYPE_META[form.type].labelHint
       }
 
-      const payload = {
-        type: form.type,
-        amount,
-        label,
-        note: form.note.trim(),
-        categoryId,
-        personId,
-        date: form.date,
-        planned: form.planned || form.date > today,
-        walletId: form.walletId,
-      }
-
-      if (props.editing) {
-        await updateTransaction(props.editing.id, payload)
+      if (form.repeat && !props.editing) {
+        await addRule({
+          walletId: form.walletId,
+          type: form.type,
+          amount,
+          note: form.note.trim(),
+          label,
+          categoryId,
+          personId,
+          frequency: form.frequency,
+          startDate: form.date,
+          endDate: form.endDate || null,
+        })
       } else {
-        await addTransaction(payload)
+        const payload = {
+          type: form.type,
+          amount,
+          label,
+          note: form.note.trim(),
+          categoryId,
+          personId,
+          date: form.date,
+          planned: form.planned || form.date > today,
+          walletId: form.walletId,
+        }
+
+        if (props.editing) {
+          await updateTransaction(props.editing.id, payload)
+        } else {
+          await addTransaction(payload)
+        }
       }
     }
     emit('close')
@@ -354,10 +380,45 @@ async function submit() {
             style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
           />
         </label>
-        <label class="flex items-center gap-2 pt-5 text-sm select-none" style="color: var(--paper-dim)">
+        <label
+          v-if="!form.repeat"
+          class="flex items-center gap-2 pt-5 text-sm select-none"
+          style="color: var(--paper-dim)"
+        >
           <input v-model="form.planned" type="checkbox" class="accent-[color:var(--accent)]" />
           Just planned
         </label>
+      </div>
+
+      <div v-if="!editing && form.type !== 'transfer'" class="mb-6">
+        <label class="flex items-center gap-2 text-sm select-none" style="color: var(--paper-dim)">
+          <input v-model="form.repeat" type="checkbox" class="accent-[color:var(--accent)]" />
+          Repeat
+        </label>
+        <div v-if="form.repeat" class="grid grid-cols-2 gap-2 mt-3">
+          <label class="block">
+            <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Frequency</span>
+            <select
+              v-model="form.frequency"
+              class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
+              style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+            >
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+              <option value="yearly">Yearly</option>
+            </select>
+          </label>
+          <label class="block">
+            <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Ends (optional)</span>
+            <input
+              v-model="form.endDate"
+              type="date"
+              :min="form.date"
+              class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
+              style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+            />
+          </label>
+        </div>
       </div>
 
       <p v-if="submitError" class="text-xs mb-3" style="color: var(--money-out)">{{ submitError }}</p>

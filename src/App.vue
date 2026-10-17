@@ -8,6 +8,7 @@ import RecentActivity from './components/RecentActivity.vue'
 import AddEntry from './components/AddEntry.vue'
 import WalletTabs from './components/WalletTabs.vue'
 import PeopleView from './components/PeopleView.vue'
+import RecurringRulesView from './components/RecurringRulesView.vue'
 import AllActivityView from './components/AllActivityView.vue'
 import TrendsView from './components/TrendsView.vue'
 import UpdateBanner from './components/UpdateBanner.vue'
@@ -25,6 +26,7 @@ const showAdd = ref(false)
 const editingTransaction = ref<Transaction | null>(null)
 const showSettings = ref(false)
 const showPeople = ref(false)
+const showRecurring = ref(false)
 const { settings, updateCurrency } = useSettings()
 const currencyError = ref('')
 
@@ -51,6 +53,11 @@ function lastSyncedLabel() {
 function closeAddEntry() {
   showAdd.value = false
   editingTransaction.value = null
+}
+
+function openRecurring() {
+  showSettings.value = false
+  showRecurring.value = true
 }
 
 const importFile = ref<HTMLInputElement | null>(null)
@@ -174,6 +181,16 @@ async function handleImportFile(e: Event) {
           </div>
 
           <div class="border-t pt-4 mt-4" style="border-color: var(--ink-line)">
+            <button
+              class="w-full py-2 rounded-lg text-xs font-medium border"
+              style="border-color: var(--ink-line); color: var(--paper)"
+              @click="openRecurring"
+            >
+              Manage recurring entries
+            </button>
+          </div>
+
+          <div class="border-t pt-4 mt-4" style="border-color: var(--ink-line)">
             <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Backup</span>
             <p class="text-xs mt-1 mb-3" style="color: var(--paper-dim)">
               {{
@@ -225,5 +242,6 @@ async function handleImportFile(e: Event) {
     </div>
 
     <AddEntry v-if="showAdd || editingTransaction" :editing="editingTransaction" @close="closeAddEntry" />
+    <RecurringRulesView v-if="showRecurring" @close="showRecurring = false" />
   </template>
 </template>

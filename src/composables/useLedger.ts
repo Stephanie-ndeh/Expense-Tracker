@@ -194,6 +194,18 @@ export function useLedger() {
     state.transactions.push(t)
   }
 
+  /** Bulk insert for recurring-rule-generated occurrences, which are always already-settled. */
+  async function addGeneratedTransactions(items: Transaction[]) {
+    if (!items.length) return
+    if (!supabase) throw new Error('Supabase is not configured')
+    const userId = await getUserId()
+    if (!userId) throw new Error('Not signed in')
+
+    const { error } = await supabase.from('transactions').insert(items.map((t) => transactionToRow(t, userId)))
+    if (error) throw error
+    state.transactions.push(...items)
+  }
+
   /** Transfer-aware: a transfer's two rows share a transfer_id and are removed together in one statement. */
   async function removeTransaction(id: string) {
     if (!supabase) throw new Error('Supabase is not configured')
@@ -558,6 +570,7 @@ export function useLedger() {
     plannedSpend,
     thisMonthSpend,
     addTransaction,
+    addGeneratedTransactions,
     removeTransaction,
     updateTransaction,
     addTransfer,
