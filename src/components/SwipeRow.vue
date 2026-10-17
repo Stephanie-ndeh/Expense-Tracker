@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
-const emit = defineEmits<{ delete: [] }>()
+const emit = defineEmits<{ edit: []; delete: [] }>()
 
 const REVEAL = 76
 const offset = ref(0)
@@ -20,29 +20,51 @@ function onPointerMove(e: PointerEvent) {
   if (!dragging.value) return
   const dx = e.clientX - startX.value
   let next = startOffset.value + dx
-  next = Math.min(0, Math.max(next, -(REVEAL + 24)))
+  next = Math.min(REVEAL + 24, Math.max(next, -(REVEAL + 24)))
   offset.value = next
 }
 
 function onPointerUp() {
   dragging.value = false
-  offset.value = offset.value < -REVEAL / 2 ? -REVEAL : 0
+  if (offset.value <= -REVEAL / 2) offset.value = -REVEAL
+  else if (offset.value >= REVEAL / 2) offset.value = REVEAL
+  else offset.value = 0
 }
 
 function close() {
   offset.value = 0
 }
 defineExpose({ close })
+
+function handleEdit() {
+  emit('edit')
+  close()
+}
+
+function handleDelete() {
+  emit('delete')
+  close()
+}
 </script>
 
 <template>
   <div class="relative overflow-hidden">
+    <div class="absolute inset-y-0 left-0 flex" :style="{ width: REVEAL + 'px' }">
+      <button
+        type="button"
+        class="flex-1 flex items-center justify-center text-xs font-medium"
+        style="background: var(--accent); color: var(--ink)"
+        @click="handleEdit"
+      >
+        Edit
+      </button>
+    </div>
     <div class="absolute inset-y-0 right-0 flex" :style="{ width: REVEAL + 'px' }">
       <button
         type="button"
         class="flex-1 flex items-center justify-center text-xs font-medium"
         style="background: var(--money-out); color: var(--ink)"
-        @click="emit('delete'); close()"
+        @click="handleDelete"
       >
         Delete
       </button>

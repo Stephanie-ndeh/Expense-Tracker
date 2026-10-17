@@ -3,18 +3,18 @@ import type { Wallet } from '../types/wallet'
 import { supabase } from '../lib/supabaseClient'
 
 function uid() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
+  return crypto.randomUUID()
 }
 
 export type WalletRow = {
   id: string
   name: string
   is_default: boolean
-  created_at: number | string
+  created_at: string
 }
 
 export function rowToWallet(r: WalletRow): Wallet {
-  return { id: r.id, name: r.name, isDefault: r.is_default, createdAt: Number(r.created_at) }
+  return { id: r.id, name: r.name, isDefault: r.is_default, createdAt: new Date(r.created_at).getTime() }
 }
 
 const state = reactive({
@@ -50,13 +50,29 @@ export function useWallets() {
       user_id: userId,
       name: wallet.name,
       is_default: false,
-      created_at: wallet.createdAt,
+      created_at: new Date(wallet.createdAt).toISOString(),
     })
     if (error) {
       throw error.code === '23505' ? new Error(`A wallet named "${trimmed}" already exists.`) : error
     }
     state.wallets.push(wallet)
     activeWalletId.value = wallet.id
+  }
+
+  async function renameWallet(id: string, name: string) {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    if (state.wallets.some((w) => w.id !== id && w.name.toLowerCase() === trimmed.toLowerCase())) {
+      throw new Error(`A wallet named "${trimmed}" already exists.`)
+    }
+    if (!supabase) throw new Error('Supabase is not configured')
+
+    const { error } = await supabase.from('wallets').update({ name: trimmed }).eq('id', id)
+    if (error) {
+      throw error.code === '23505' ? new Error(`A wallet named "${trimmed}" already exists.`) : error
+    }
+    const wallet = state.wallets.find((w) => w.id === id)
+    if (wallet) wallet.name = trimmed
   }
 
   async function removeWallet(id: string) {
@@ -69,12 +85,15 @@ export function useWallets() {
       .from('transactions')
       .select('id', { count: 'exact', head: true })
       .eq('wallet_id', id)
+      .is('deleted_at', null)
     if (countError) throw countError
     if (count) {
-      throw new Error(`This wallet still has ${count} ${count === 1 ? 'entry' : 'entries'} — delete or move them first.`)
+      throw new Error(
+        `This wallet still has ${count} ${count === 1 ? 'entry' : 'entries'} — delete or move them first.`,
+      )
     }
 
-    const { error } = await supabase.from('wallets').delete().eq('id', id)
+    const { error } = await supabase.from('wallets').update({ deleted_at: new Date().toISOString() }).eq('id', id)
     if (error) throw error
 
     const idx = state.wallets.findIndex((w) => w.id === id)
@@ -93,7 +112,7 @@ export function useWallets() {
       user_id: userId,
       name: wallet.name,
       is_default: true,
-      created_at: wallet.createdAt,
+      created_at: new Date(wallet.createdAt).toISOString(),
     })
     if (error) throw error
     state.wallets.push(wallet)
@@ -114,7 +133,7 @@ export function useWallets() {
         user_id: userId,
         name: w.name,
         is_default: false,
-        created_at: w.createdAt,
+        created_at: new Date(w.createdAt).toISOString(),
       })
       if (error) continue
       state.wallets.push({ ...w, isDefault: false })
@@ -138,6 +157,7 @@ export function useWallets() {
     activeWalletId,
     defaultWalletId,
     addWallet,
+    renameWallet,
     removeWallet,
     createDefaultWallet,
     importWallets,

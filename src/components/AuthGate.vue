@@ -11,6 +11,12 @@ const submitting = ref(false)
 const error = ref('')
 const notice = ref('')
 
+function toggleMode() {
+  mode.value = mode.value === 'signin' ? 'signup' : 'signin'
+  error.value = ''
+  notice.value = ''
+}
+
 async function submit() {
   error.value = ''
   notice.value = ''
@@ -39,7 +45,7 @@ async function submit() {
         {{ mode === 'signin' ? 'Sign in to sync your ledger.' : 'Create an account to sync your ledger.' }}
       </p>
 
-      <form @submit.prevent="submit" class="space-y-3">
+      <form class="space-y-3" @submit.prevent="submit">
         <input
           v-model="email"
           type="email"
@@ -73,12 +79,8 @@ async function submit() {
         </button>
       </form>
 
-      <button
-        @click="mode = mode === 'signin' ? 'signup' : 'signin'; error = ''; notice = ''"
-        class="w-full text-center text-xs mt-4"
-        style="color: var(--paper-dim)"
-      >
-        {{ mode === 'signin' ? "No account yet? Create one" : 'Already have an account? Sign in' }}
+      <button class="w-full text-center text-xs mt-4" style="color: var(--paper-dim)" @click="toggleMode">
+        {{ mode === 'signin' ? 'No account yet? Create one' : 'Already have an account? Sign in' }}
       </button>
     </div>
   </div>

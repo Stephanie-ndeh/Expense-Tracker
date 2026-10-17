@@ -18,16 +18,16 @@ const { format } = useSettings()
       <p v-if="error" class="text-xs mb-4" style="color: var(--money-out)">{{ error }}</p>
       <div class="flex gap-2">
         <button
-          @click="emit('cancel')"
           class="flex-1 py-2.5 rounded-xl text-sm font-medium border"
           style="border-color: var(--ink-line); color: var(--paper)"
+          @click="emit('cancel')"
         >
           Cancel
         </button>
         <button
-          @click="emit('confirm')"
           class="flex-1 py-2.5 rounded-xl text-sm font-medium"
           style="background: var(--money-out); color: var(--ink)"
+          @click="emit('confirm')"
         >
           Delete
         </button>

@@ -7,12 +7,17 @@ import type { Transaction } from '../types/transaction'
 import ConfirmDeleteModal from './ConfirmDeleteModal.vue'
 import SwipeRow from './SwipeRow.vue'
 
-const emit = defineEmits<{ seeAll: [] }>()
+const emit = defineEmits<{ seeAll: []; edit: [transaction: Transaction] }>()
 const { recentActivity, pastTransactions, removeTransaction } = useLedger()
 const { format } = useSettings()
 
 const pendingDelete = ref<Transaction | null>(null)
 const deleteError = ref('')
+function cancelDelete() {
+  pendingDelete.value = null
+  deleteError.value = ''
+}
+
 async function confirmDelete() {
   if (!pendingDelete.value) return
   const id = pendingDelete.value.id
@@ -33,7 +38,11 @@ function dayLabel(date: string) {
   const fmt = (x: Date) => x.toISOString().slice(0, 10)
   if (fmt(d) === fmt(today)) return 'Today'
   if (fmt(d) === fmt(yesterday)) return 'Yesterday'
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined })
+  return d.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
+  })
 }
 </script>
 
@@ -41,7 +50,7 @@ function dayLabel(date: string) {
   <div class="px-5 pt-6 pb-2">
     <div class="flex items-center justify-between mb-2">
       <h3 class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Recent activity</h3>
-      <button v-if="pastTransactions.length > 5" @click="emit('seeAll')" class="text-xs" style="color: var(--accent)">
+      <button v-if="pastTransactions.length > 5" class="text-xs" style="color: var(--accent)" @click="emit('seeAll')">
         See all ({{ pastTransactions.length }}) ›
       </button>
     </div>
@@ -49,19 +58,23 @@ function dayLabel(date: string) {
     <p v-if="!recentActivity.length" class="text-sm py-6 text-center" style="color: var(--paper-dim)">
       No activity logged yet.
     </p>
-    <p v-else class="text-[11px] mb-1" style="color: var(--paper-dim)">Swipe left on an entry to delete it.</p>
+    <p v-else class="text-[11px] mb-1" style="color: var(--paper-dim)">Swipe left to delete · swipe right to edit.</p>
 
     <SwipeRow
       v-for="t in recentActivity"
       :key="t.id"
       class="border-b"
       style="border-color: var(--ink-line)"
+      @edit="emit('edit', t)"
       @delete="pendingDelete = t"
     >
       <div class="flex items-center justify-between py-2.5">
         <div class="min-w-0">
           <p class="text-sm truncate">{{ t.label }}</p>
-          <p class="text-xs" style="color: var(--paper-dim)">{{ dayLabel(t.date) }} · {{ TYPE_META[t.type].verb }}<template v-if="t.note"> · {{ t.note }}</template></p>
+          <p class="text-xs" style="color: var(--paper-dim)">
+            {{ dayLabel(t.date) }} · {{ TYPE_META[t.type].verb }}<template v-if="t.note"> · {{ t.note }}</template
+            ><template v-if="t.pendingSync"> · <span style="color: var(--accent)">Pending sync</span></template>
+          </p>
         </div>
         <span
           class="font-mono text-sm font-medium tabular-nums shrink-0 pl-3"
@@ -77,7 +90,7 @@ function dayLabel(date: string) {
     v-if="pendingDelete"
     :transaction="pendingDelete"
     :error="deleteError"
-    @cancel="pendingDelete = null; deleteError = ''"
+    @cancel="cancelDelete"
     @confirm="confirmDelete"
   />
 </template>
