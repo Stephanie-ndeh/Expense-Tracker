@@ -47,6 +47,15 @@ export function useAuth() {
     await supabase.auth.signOut()
   }
 
+  async function signInWithGoogle() {
+    if (!supabase) throw new Error('Supabase is not configured')
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin },
+    })
+    if (error) throw error
+  }
+
   async function resetPasswordForEmail(email: string) {
     if (!supabase) throw new Error('Supabase is not configured')
     const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
@@ -69,6 +78,7 @@ export function useAuth() {
     signIn,
     signUp,
     signOut,
+    signInWithGoogle,
     resetPasswordForEmail,
     updatePassword,
   }
