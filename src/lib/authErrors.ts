@@ -17,5 +17,8 @@ export function mapAuthError(e: unknown): string {
   if (/after \d+ seconds?/i.test(message)) {
     return "You're doing that a bit too fast — wait a moment and try again."
   }
+  if (/provider is not enabled/i.test(message)) {
+    return "Google sign-in isn't turned on for this app yet."
+  }
   return message
 }
