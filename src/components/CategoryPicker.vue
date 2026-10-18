@@ -15,7 +15,7 @@ const title = props.kind === 'expense' ? 'Spent on what?' : 'Received from where
 const query = ref('')
 
 const counts = computed(() => categoryUsageCounts(props.kind))
-const ofKind = computed(() => categories.value.filter((c) => c.kind === props.kind))
+const ofKind = computed(() => categories.value.filter((c) => c.kind === props.kind && !c.hidden))
 
 function countLabel(id: string) {
   const n = counts.value.get(id) ?? 0

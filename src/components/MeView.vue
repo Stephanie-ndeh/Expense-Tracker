@@ -9,7 +9,7 @@ import { useAuth } from '../composables/useAuth'
 import { useSync } from '../composables/useSync'
 import type { Wallet } from '../types/wallet'
 
-const emit = defineEmits<{ openAppearance: []; openPro: []; openPeople: [] }>()
+const emit = defineEmits<{ openAppearance: []; openPro: []; openPeople: []; openCategories: [] }>()
 
 const { wallets, addWallet, renameWallet, removeWallet } = useWallets()
 const { settings, updateCurrency, format } = useSettings()
@@ -23,6 +23,8 @@ const displayName = computed(() => {
   const local = userEmail.value?.split('@')[0] ?? 'You'
   return local.charAt(0).toUpperCase() + local.slice(1)
 })
+
+const visibleCategoryCount = computed(() => categories.value.filter((c) => !c.hidden).length)
 
 const currencyError = ref('')
 async function saveCurrency() {
@@ -291,10 +293,28 @@ async function confirmDeleteWallet() {
     <section class="flex flex-col gap-2 mt-6">
       <h2 class="text-xs font-bold" style="color: var(--text-dim); letter-spacing: 0.3px">Money setup</h2>
       <div class="rounded-2xl border overflow-hidden" style="background: var(--surface); border-color: var(--line)">
-        <div class="flex items-center gap-3 px-3.5" style="min-height: 52px; border-bottom: 1px solid var(--line)">
+        <button
+          type="button"
+          class="w-full flex items-center gap-3 px-3.5 text-left"
+          style="min-height: 52px; border-bottom: 1px solid var(--line)"
+          @click="emit('openCategories')"
+        >
           <span class="flex-1 text-sm font-semibold">Categories</span>
-          <span class="text-[13px]" style="color: var(--text-dim)">{{ categories.length }}</span>
-        </div>
+          <span class="text-[13px]" style="color: var(--text-dim)">{{ visibleCategoryCount }}</span>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="var(--text-dim)"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="m9 6 6 6-6 6" />
+          </svg>
+        </button>
         <button
           type="button"
           class="w-full flex items-center gap-3 px-3.5 text-left"

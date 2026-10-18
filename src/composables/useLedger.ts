@@ -4,33 +4,13 @@ import { TYPE_META } from '../types/transaction'
 import type { Wallet } from '../types/wallet'
 import type { CategoryKind } from '../types/category'
 import { useWallets } from './useWallets'
-import { useCategories } from './useCategories'
+import { useCategories, DEFAULT_CATEGORY_NAMES } from './useCategories'
 import { usePeople } from './usePeople'
 import { supabase } from '../lib/supabaseClient'
 import { enqueueMutation, getQueuedMutations, removeQueuedMutation } from '../lib/offlineQueue'
 
 function uid() {
   return crypto.randomUUID()
-}
-
-/** Shown when an account has no categories of that kind yet — nothing is written to the database until the user
- *  actually picks one and saves an entry, same as every other find-or-create category/person flow in the app. */
-const DEFAULT_CATEGORY_NAMES: Record<CategoryKind, string[]> = {
-  expense: [
-    'Food',
-    'Transport',
-    'Bills',
-    'Airtime/Data',
-    'Shopping',
-    'Health',
-    'Personal care',
-    'Household',
-    'Fitness',
-    'Family',
-    'Church/Giving',
-    'Other',
-  ],
-  income: ['Salary', 'Business', 'Gift', 'Other'],
 }
 
 function isOnline() {
@@ -132,14 +112,14 @@ const state = reactive({
 
 export function useLedger() {
   const { activeWalletId, wallets, importWallets } = useWallets()
-  const { categories } = useCategories()
+  const { categories, removeCategoryLocal } = useCategories()
   const { people } = usePeople()
 
-  /** Categories of the given kind, most-used-first (ties keep the categories table's order). */
   /** Quick-chip suggestions for Add entry: ranked by uses in the last 90 days, ties broken by most recently used.
-   *  Falls back to design/DESIGN.md's defaults (as name-only placeholders, not real rows) when there's no history yet. */
+   *  Falls back to design/DESIGN.md's defaults (as name-only placeholders, not real rows) when there's no history yet.
+   *  Hidden categories never appear here — Add entry and the picker are the two places hidden ones disappear from. */
   function suggestedCategories(kind: CategoryKind, limit = 6) {
-    const existing = categories.value.filter((c) => c.kind === kind)
+    const existing = categories.value.filter((c) => c.kind === kind && !c.hidden)
     if (!existing.length) {
       return DEFAULT_CATEGORY_NAMES[kind].slice(0, limit).map((name) => ({ id: name, name }))
     }
@@ -468,6 +448,41 @@ export function useLedger() {
     }
   }
 
+  /** Moves every transaction off source onto target via the merge_categories RPC (one atomic DB transaction —
+   *  see supabase/migrations/014_categories_manage.sql), then patches local state to match. */
+  async function mergeCategories(sourceId: string, targetId: string) {
+    if (!supabase) throw new Error('Supabase is not configured')
+    const { error } = await supabase.rpc('merge_categories', { source_id: sourceId, target_id: targetId })
+    if (error) throw error
+
+    for (const t of state.transactions) {
+      if (t.categoryId === sourceId) t.categoryId = targetId
+    }
+    removeCategoryLocal(sourceId)
+  }
+
+  /** Tidy-up "Review": bulk-converts expense entries under the given (debt-like-named) categories into
+   *  payback entries. There's no real person to attach, so personId stays null and the label is left as-is
+   *  (it's already whatever the category's name was) — a single UPDATE is already atomic as one statement. */
+  async function convertCategoryEntriesToPayback(categoryIds: string[]) {
+    if (!categoryIds.length) return
+    if (!supabase) throw new Error('Supabase is not configured')
+    const { error } = await supabase
+      .from('transactions')
+      .update({ type: 'payback', category_id: null })
+      .in('category_id', categoryIds)
+      .eq('type', 'expense')
+    if (error) throw error
+
+    const idSet = new Set(categoryIds)
+    for (const t of state.transactions) {
+      if (t.type === 'expense' && t.categoryId && idSet.has(t.categoryId)) {
+        t.type = 'payback'
+        t.categoryId = null
+      }
+    }
+  }
+
   // --- Per-person lending/debt view ---
   const personSummaries = computed(() => {
     const byPerson = new Map<string, Transaction[]>()
@@ -751,6 +766,8 @@ export function useLedger() {
     addTransfer,
     updateTransfer,
     transferSibling,
+    mergeCategories,
+    convertCategoryEntriesToPayback,
     markSettled,
     suggestedCategories,
     categoryUsageCounts,

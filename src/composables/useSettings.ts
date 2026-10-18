@@ -64,21 +64,26 @@ async function getUserId(): Promise<string | null> {
 }
 
 /** Called by useSync.ts right after sign-in: load the profile, or create one defaulting to FCFA if it doesn't exist yet. */
-async function loadProfile() {
-  if (!supabase) return
+/** Returns true only when this call just inserted the profile row — i.e. a genuinely first-ever sign-in,
+ *  as opposed to merely "the user currently has zero of something." Used to gate one-time new-account
+ *  seeding (default categories) without ever re-triggering it for an existing account. */
+async function loadProfile(): Promise<boolean> {
+  if (!supabase) return false
   const userId = await getUserId()
-  if (!userId) return
+  if (!userId) return false
 
   const { data, error } = await supabase.from('profiles').select('currency').eq('id', userId).maybeSingle()
   if (error) throw error
 
   if (data) {
     state.currency = data.currency
-  } else {
-    const { error: insertError } = await supabase.from('profiles').insert({ id: userId, currency: DEFAULT_CURRENCY })
-    if (insertError) throw insertError
-    state.currency = DEFAULT_CURRENCY
+    return false
   }
+
+  const { error: insertError } = await supabase.from('profiles').insert({ id: userId, currency: DEFAULT_CURRENCY })
+  if (insertError) throw insertError
+  state.currency = DEFAULT_CURRENCY
+  return true
 }
 
 async function updateCurrency(value: string) {

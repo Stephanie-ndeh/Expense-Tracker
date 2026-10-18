@@ -1,7 +1,10 @@
 <script setup lang="ts">
 type NavItem = 'home' | 'activity' | 'todos' | 'me'
 
-defineProps<{ active: 'home' | 'activity' | 'todos' | 'me' | 'appearance' | 'pro'; overdueCount: number }>()
+defineProps<{
+  active: 'home' | 'activity' | 'todos' | 'me' | 'appearance' | 'pro' | 'categories'
+  overdueCount: number
+}>()
 const emit = defineEmits<{ navigate: [view: NavItem]; add: [] }>()
 </script>
 
