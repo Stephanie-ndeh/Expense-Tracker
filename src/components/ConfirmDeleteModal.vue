@@ -10,23 +10,23 @@ const { format } = useSettings()
 <template>
   <div class="fixed inset-0 z-50 flex items-center justify-center px-6">
     <div class="absolute inset-0 bg-black/60" @click="emit('cancel')" />
-    <div class="relative w-full max-w-xs rounded-2xl p-5" style="background: var(--ink-raised)">
+    <div class="relative w-full max-w-xs rounded-2xl p-5" style="background: var(--surface)">
       <h2 class="text-sm font-semibold mb-1">Delete this entry?</h2>
-      <p class="text-sm mb-4" style="color: var(--paper-dim)">
+      <p class="text-sm mb-4" style="color: var(--text-dim)">
         "{{ transaction.label }}" · {{ format(transaction.amount) }} — this can't be undone.
       </p>
-      <p v-if="error" class="text-xs mb-4" style="color: var(--money-out)">{{ error }}</p>
+      <p v-if="error" class="text-xs mb-4" style="color: var(--warn-text)">{{ error }}</p>
       <div class="flex gap-2">
         <button
           class="flex-1 py-2.5 rounded-xl text-sm font-medium border"
-          style="border-color: var(--ink-line); color: var(--paper)"
+          style="border-color: var(--line); color: var(--text)"
           @click="emit('cancel')"
         >
           Cancel
         </button>
         <button
           class="flex-1 py-2.5 rounded-xl text-sm font-medium"
-          style="background: var(--money-out); color: var(--ink)"
+          style="background: var(--money-out); color: var(--bg)"
           @click="emit('confirm')"
         >
           Delete

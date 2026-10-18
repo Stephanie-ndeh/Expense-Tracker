@@ -46,18 +46,18 @@ async function toggle(todo: Todo) {
 <template>
   <div class="px-5 pt-6 pb-2">
     <div class="flex items-center justify-between mb-2">
-      <h3 class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Money to-dos</h3>
-      <button class="text-xs" style="color: var(--accent)" @click="emit('seeAll')">See all ›</button>
+      <h3 class="text-xs uppercase tracking-wide" style="color: var(--text-dim)">Money to-dos</h3>
+      <button class="text-xs" style="color: var(--accent-text)" @click="emit('seeAll')">See all ›</button>
     </div>
-    <p v-if="error" class="text-xs mb-2" style="color: var(--money-out)">{{ error }}</p>
+    <p v-if="error" class="text-xs mb-2" style="color: var(--warn-text)">{{ error }}</p>
 
-    <p v-if="!pending.length" class="text-xs py-1" style="color: var(--paper-dim)">Nothing on your list yet.</p>
+    <p v-if="!pending.length" class="text-xs py-1" style="color: var(--text-dim)">Nothing on your list yet.</p>
 
     <div
       v-for="t in pending"
       :key="t.id"
       class="flex items-center justify-between py-2.5 border-b border-dashed"
-      style="border-color: var(--ink-line)"
+      style="border-color: var(--line)"
     >
       <label class="flex items-center gap-3 min-w-0">
         <input
@@ -68,7 +68,7 @@ async function toggle(todo: Todo) {
         />
         <span class="min-w-0">
           <p class="text-sm truncate">{{ t.title }}</p>
-          <p class="text-xs" style="color: var(--paper-dim)">
+          <p class="text-xs" style="color: var(--text-dim)">
             <template v-if="t.amount != null">{{ format(t.amount) }}</template>
             <template v-if="t.dueDate"> · Due {{ t.dueDate }}</template>
           </p>

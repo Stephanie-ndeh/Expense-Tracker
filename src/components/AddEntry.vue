@@ -199,12 +199,12 @@ async function submit() {
     <div class="absolute inset-0 bg-black/60" @click="emit('close')" />
     <form
       class="relative w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl p-5 pb-8 sm:pb-5 max-h-[90vh] overflow-y-auto"
-      style="background: var(--ink-raised)"
+      style="background: var(--surface)"
       @submit.prevent="submit"
     >
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-base font-semibold">{{ editing ? 'Edit entry' : 'Add entry' }}</h2>
-        <button type="button" class="text-sm" style="color: var(--paper-dim)" @click="emit('close')">Cancel</button>
+        <button type="button" class="text-sm" style="color: var(--text-dim)" @click="emit('close')">Cancel</button>
       </div>
 
       <div class="grid grid-cols-3 gap-2 mb-5">
@@ -216,8 +216,8 @@ async function submit() {
           class="text-xs py-2 rounded-lg border transition-colors disabled:opacity-40"
           :style="
             form.type === t.value
-              ? { background: 'var(--paper)', color: 'var(--ink)', borderColor: 'var(--paper)' }
-              : { borderColor: 'var(--ink-line)', color: 'var(--paper-dim)' }
+              ? { background: 'var(--text)', color: 'var(--bg)', borderColor: 'var(--text)' }
+              : { borderColor: 'var(--line)', color: 'var(--text-dim)' }
           "
           @click="form.type = t.value"
         >
@@ -226,18 +226,18 @@ async function submit() {
       </div>
 
       <label v-if="wallets.length > 1 && form.type !== 'transfer'" class="block mb-4">
-        <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Wallet</span>
+        <span class="text-xs uppercase tracking-wide" style="color: var(--text-dim)">Wallet</span>
         <select
           v-model="form.walletId"
           class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
-          style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+          style="background: var(--bg); border-color: var(--line); color: var(--text)"
         >
           <option v-for="w in wallets" :key="w.id" :value="w.id">{{ w.name }}</option>
         </select>
       </label>
 
       <label class="block mb-4">
-        <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Amount</span>
+        <span class="text-xs uppercase tracking-wide" style="color: var(--text-dim)">Amount</span>
         <input
           v-model="form.amount"
           type="number"
@@ -247,13 +247,13 @@ async function submit() {
           required
           autofocus
           placeholder="0"
-          class="w-full mt-1 bg-transparent font-mono text-3xl font-semibold outline-none tabular-nums"
-          style="color: var(--paper)"
+          class="w-full mt-1 bg-transparent text-3xl font-semibold outline-none tabular-nums"
+          style="color: var(--text)"
         />
       </label>
 
       <label v-if="form.type === 'expense' || form.type === 'income'" class="block mb-4">
-        <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">{{
+        <span class="text-xs uppercase tracking-wide" style="color: var(--text-dim)">{{
           TYPE_META[form.type].labelHint
         }}</span>
         <input
@@ -263,7 +263,7 @@ async function submit() {
           required
           placeholder="Type or pick a category"
           class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
-          style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+          style="background: var(--bg); border-color: var(--line); color: var(--text)"
         />
         <datalist id="category-suggestions">
           <option v-for="c in categorySuggestions" :key="c.id" :value="c.name" />
@@ -274,7 +274,7 @@ async function submit() {
         v-if="form.type === 'lend' || form.type === 'repay' || form.type === 'borrow' || form.type === 'payback'"
         class="block mb-4"
       >
-        <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">{{
+        <span class="text-xs uppercase tracking-wide" style="color: var(--text-dim)">{{
           TYPE_META[form.type].labelHint
         }}</span>
         <input
@@ -284,56 +284,56 @@ async function submit() {
           :required="form.type !== 'lend'"
           placeholder="Type or pick a name"
           class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
-          style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+          style="background: var(--bg); border-color: var(--line); color: var(--text)"
         />
         <datalist id="person-suggestions">
           <option v-for="p in peopleSuggestions" :key="p.id" :value="p.name" />
         </datalist>
-        <p v-if="debtHint" class="text-xs mt-1" style="color: var(--paper-dim)">
+        <p v-if="debtHint" class="text-xs mt-1" style="color: var(--text-dim)">
           {{ debtHint.text }} {{ format(debtHint.amount) }}
         </p>
       </label>
 
       <label v-if="form.type === 'save' || form.type === 'withdraw'" class="block mb-4">
-        <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">{{
+        <span class="text-xs uppercase tracking-wide" style="color: var(--text-dim)">{{
           TYPE_META[form.type].labelHint
         }}</span>
         <input
           v-model="form.label"
           type="text"
           class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
-          style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+          style="background: var(--bg); border-color: var(--line); color: var(--text)"
         />
       </label>
 
       <template v-if="form.type === 'transfer'">
         <div v-if="editing" class="mb-4 text-sm space-y-2">
           <p>
-            <span class="text-xs uppercase tracking-wide block" style="color: var(--paper-dim)">From</span>
+            <span class="text-xs uppercase tracking-wide block" style="color: var(--text-dim)">From</span>
             {{ wallets.find((w) => w.id === form.fromWalletId)?.name ?? '—' }}
           </p>
           <p>
-            <span class="text-xs uppercase tracking-wide block" style="color: var(--paper-dim)">To</span>
+            <span class="text-xs uppercase tracking-wide block" style="color: var(--text-dim)">To</span>
             {{ wallets.find((w) => w.id === form.toWalletId)?.name ?? '—' }}
           </p>
         </div>
         <template v-else>
           <label class="block mb-4">
-            <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">From wallet</span>
+            <span class="text-xs uppercase tracking-wide" style="color: var(--text-dim)">From wallet</span>
             <select
               v-model="form.fromWalletId"
               class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
-              style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+              style="background: var(--bg); border-color: var(--line); color: var(--text)"
             >
               <option v-for="w in wallets" :key="w.id" :value="w.id">{{ w.name }}</option>
             </select>
           </label>
           <label class="block mb-4">
-            <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">To wallet</span>
+            <span class="text-xs uppercase tracking-wide" style="color: var(--text-dim)">To wallet</span>
             <select
               v-model="form.toWalletId"
               class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
-              style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+              style="background: var(--bg); border-color: var(--line); color: var(--text)"
             >
               <option v-for="w in wallets" :key="w.id" :value="w.id">{{ w.name }}</option>
             </select>
@@ -342,38 +342,38 @@ async function submit() {
       </template>
 
       <label class="block mb-4">
-        <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Note (optional)</span>
+        <span class="text-xs uppercase tracking-wide" style="color: var(--text-dim)">Note (optional)</span>
         <input
           v-model="form.note"
           type="text"
           class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
-          style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+          style="background: var(--bg); border-color: var(--line); color: var(--text)"
         />
       </label>
 
       <div class="flex items-center gap-3 mb-6">
         <label class="flex-1">
-          <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Date</span>
+          <span class="text-xs uppercase tracking-wide" style="color: var(--text-dim)">Date</span>
           <input
             v-model="form.date"
             type="date"
             class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
-            style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+            style="background: var(--bg); border-color: var(--line); color: var(--text)"
           />
         </label>
-        <label class="flex items-center gap-2 pt-5 text-sm select-none" style="color: var(--paper-dim)">
+        <label class="flex items-center gap-2 pt-5 text-sm select-none" style="color: var(--text-dim)">
           <input v-model="form.planned" type="checkbox" class="accent-[color:var(--accent)]" />
           Just planned
         </label>
       </div>
 
-      <p v-if="submitError" class="text-xs mb-3" style="color: var(--money-out)">{{ submitError }}</p>
+      <p v-if="submitError" class="text-xs mb-3" style="color: var(--warn-text)">{{ submitError }}</p>
 
       <button
         type="submit"
         :disabled="submitting"
         class="w-full py-3 rounded-xl font-medium text-sm disabled:opacity-50"
-        style="background: var(--accent); color: var(--ink)"
+        style="background: var(--accent); color: var(--on-accent)"
       >
         {{ submitting ? 'Saving…' : editing ? 'Save changes' : 'Save entry' }}
       </button>

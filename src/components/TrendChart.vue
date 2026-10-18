@@ -18,8 +18,8 @@ function barHeight(value: number) {
 <template>
   <button type="button" class="block w-full text-left px-5 pt-6 pb-4" @click="emit('openTrends')">
     <div class="flex items-center justify-between mb-4">
-      <h3 class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Last 6 months</h3>
-      <span class="text-xs" style="color: var(--accent)">See details ›</span>
+      <h3 class="text-xs uppercase tracking-wide" style="color: var(--text-dim)">Last 6 months</h3>
+      <span class="text-xs" style="color: var(--accent-text)">See details ›</span>
     </div>
 
     <div class="flex items-end justify-between gap-2" style="height: 140px">
@@ -40,7 +40,7 @@ function barHeight(value: number) {
             :title="format(m.expense)"
           />
         </div>
-        <span class="text-[10px] mt-2" style="color: var(--paper-dim)">{{ m.label }}</span>
+        <span class="text-[10px] mt-2" style="color: var(--text-dim)">{{ m.label }}</span>
       </div>
     </div>
   </button>

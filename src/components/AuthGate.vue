@@ -38,10 +38,10 @@ async function submit() {
 </script>
 
 <template>
-  <div class="min-h-screen flex items-center justify-center px-6" style="background: var(--ink); color: var(--paper)">
+  <div class="min-h-screen flex items-center justify-center px-6" style="background: var(--bg); color: var(--text)">
     <div class="w-full max-w-xs">
       <h1 class="text-lg font-semibold mb-1">Reckon</h1>
-      <p class="text-xs mb-6" style="color: var(--paper-dim)">
+      <p class="text-xs mb-6" style="color: var(--text-dim)">
         {{ mode === 'signin' ? 'Sign in to sync your ledger.' : 'Create an account to sync your ledger.' }}
       </p>
 
@@ -53,7 +53,7 @@ async function submit() {
           placeholder="Email"
           required
           class="w-full rounded-lg px-3 py-2 text-base outline-none border"
-          style="background: var(--ink-raised); border-color: var(--ink-line); color: var(--paper)"
+          style="background: var(--surface); border-color: var(--line); color: var(--text)"
         />
         <input
           v-model="password"
@@ -63,23 +63,23 @@ async function submit() {
           required
           minlength="6"
           class="w-full rounded-lg px-3 py-2 text-base outline-none border"
-          style="background: var(--ink-raised); border-color: var(--ink-line); color: var(--paper)"
+          style="background: var(--surface); border-color: var(--line); color: var(--text)"
         />
 
-        <p v-if="error" class="text-xs" style="color: var(--money-out)">{{ error }}</p>
-        <p v-if="notice" class="text-xs" style="color: var(--accent)">{{ notice }}</p>
+        <p v-if="error" class="text-xs" style="color: var(--warn-text)">{{ error }}</p>
+        <p v-if="notice" class="text-xs" style="color: var(--accent-text)">{{ notice }}</p>
 
         <button
           type="submit"
           :disabled="submitting"
           class="w-full py-2.5 rounded-xl text-sm font-medium disabled:opacity-50"
-          style="background: var(--accent); color: var(--ink)"
+          style="background: var(--accent); color: var(--on-accent)"
         >
           {{ submitting ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Create account' }}
         </button>
       </form>
 
-      <button class="w-full text-center text-xs mt-4" style="color: var(--paper-dim)" @click="toggleMode">
+      <button class="w-full text-center text-xs mt-4" style="color: var(--text-dim)" @click="toggleMode">
         {{ mode === 'signin' ? 'No account yet? Create one' : 'Already have an account? Sign in' }}
       </button>
     </div>

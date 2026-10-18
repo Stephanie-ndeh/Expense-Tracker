@@ -139,9 +139,9 @@ function dayLabel(date: string) {
 </script>
 
 <template>
-  <div class="min-h-screen pb-10" style="background: var(--ink); color: var(--paper)">
+  <div class="min-h-screen pb-10" style="background: var(--bg); color: var(--text)">
     <header class="flex items-center gap-3 px-5 pt-5 pb-2">
-      <button aria-label="Back" class="text-lg leading-none" style="color: var(--paper-dim)" @click="emit('back')">
+      <button aria-label="Back" class="text-lg leading-none" style="color: var(--text-dim)" @click="emit('back')">
         ‹
       </button>
       <h1 class="text-sm font-semibold">All activity</h1>
@@ -153,14 +153,14 @@ function dayLabel(date: string) {
         type="text"
         placeholder="Search label or note"
         class="w-full rounded-lg px-3 py-2 text-sm outline-none border"
-        style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+        style="background: var(--bg); border-color: var(--line); color: var(--text)"
       />
 
       <div class="grid grid-cols-2 gap-2">
         <select
           v-model="type"
           class="rounded-lg px-3 py-2 text-xs outline-none border"
-          style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+          style="background: var(--bg); border-color: var(--line); color: var(--text)"
         >
           <option value="all">All types</option>
           <option v-for="t in types" :key="t.value" :value="t.value">{{ t.label }}</option>
@@ -169,7 +169,7 @@ function dayLabel(date: string) {
         <select
           v-model="walletId"
           class="rounded-lg px-3 py-2 text-xs outline-none border"
-          style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+          style="background: var(--bg); border-color: var(--line); color: var(--text)"
         >
           <option value="all">All wallets</option>
           <option v-for="w in wallets" :key="w.id" :value="w.id">{{ w.name }}</option>
@@ -179,7 +179,7 @@ function dayLabel(date: string) {
       <select
         v-model="label"
         class="w-full rounded-lg px-3 py-2 text-xs outline-none border"
-        style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+        style="background: var(--bg); border-color: var(--line); color: var(--text)"
       >
         <option value="all">All categories / people</option>
         <option v-for="l in labelOptions" :key="l" :value="l">{{ l }}</option>
@@ -193,7 +193,7 @@ function dayLabel(date: string) {
           min="0"
           placeholder="Min amount"
           class="rounded-lg px-3 py-2 text-xs outline-none border"
-          style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+          style="background: var(--bg); border-color: var(--line); color: var(--text)"
         />
         <input
           v-model="maxAmountInput"
@@ -202,7 +202,7 @@ function dayLabel(date: string) {
           min="0"
           placeholder="Max amount"
           class="rounded-lg px-3 py-2 text-xs outline-none border"
-          style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+          style="background: var(--bg); border-color: var(--line); color: var(--text)"
         />
       </div>
 
@@ -213,8 +213,8 @@ function dayLabel(date: string) {
           class="flex-1 text-xs py-2 rounded-lg border"
           :style="
             activePreset === p.value
-              ? { background: 'var(--paper)', color: 'var(--ink)', borderColor: 'var(--paper)' }
-              : { borderColor: 'var(--ink-line)', color: 'var(--paper-dim)' }
+              ? { background: 'var(--text)', color: 'var(--bg)', borderColor: 'var(--text)' }
+              : { borderColor: 'var(--line)', color: 'var(--text-dim)' }
           "
           @click="applyPreset(p.value)"
         >
@@ -227,47 +227,47 @@ function dayLabel(date: string) {
           v-model="startDate"
           type="date"
           class="rounded-lg px-3 py-2 text-xs outline-none border"
-          style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+          style="background: var(--bg); border-color: var(--line); color: var(--text)"
         />
         <input
           v-model="endDate"
           type="date"
           class="rounded-lg px-3 py-2 text-xs outline-none border"
-          style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+          style="background: var(--bg); border-color: var(--line); color: var(--text)"
         />
       </div>
 
-      <p class="text-xs" style="color: var(--paper-dim)">
+      <p class="text-xs" style="color: var(--text-dim)">
         {{ list.length }} {{ list.length === 1 ? 'entry' : 'entries' }} · net
-        <span class="font-mono" :style="{ color: total >= 0 ? 'var(--money-in)' : 'var(--money-out)' }">
+        <span class="" :style="{ color: total >= 0 ? 'var(--money-in)' : 'var(--money-out)' }">
           {{ total >= 0 ? '+' : '−' }}{{ format(Math.abs(total)) }}
         </span>
       </p>
     </div>
 
     <div class="px-5 pt-4">
-      <p v-if="!list.length" class="text-sm py-6 text-center" style="color: var(--paper-dim)">
+      <p v-if="!list.length" class="text-sm py-6 text-center" style="color: var(--text-dim)">
         No activity matches these filters.
       </p>
-      <p v-else class="text-[11px] mb-1" style="color: var(--paper-dim)">Swipe left to delete · swipe right to edit.</p>
+      <p v-else class="text-[11px] mb-1" style="color: var(--text-dim)">Swipe left to delete · swipe right to edit.</p>
       <SwipeRow
         v-for="t in list"
         :key="t.id"
         class="border-b"
-        style="border-color: var(--ink-line)"
+        style="border-color: var(--line)"
         @edit="emit('edit', t)"
         @delete="pendingDelete = t"
       >
         <div class="flex items-center justify-between py-2.5">
           <div class="min-w-0">
             <p class="text-sm truncate">{{ t.label }}</p>
-            <p class="text-xs" style="color: var(--paper-dim)">
+            <p class="text-xs" style="color: var(--text-dim)">
               {{ dayLabel(t.date) }} · {{ TYPE_META[t.type].verb }}<template v-if="t.note"> · {{ t.note }}</template
-              ><template v-if="t.pendingSync"> · <span style="color: var(--accent)">Pending sync</span></template>
+              ><template v-if="t.pendingSync"> · <span style="color: var(--accent-text)">Pending sync</span></template>
             </p>
           </div>
           <span
-            class="font-mono text-sm font-medium tabular-nums shrink-0 pl-3"
+            class="text-sm font-medium tabular-nums shrink-0 pl-3"
             :style="{ color: TYPE_META[t.type].sign > 0 ? 'var(--money-in)' : 'var(--money-out)' }"
           >
             {{ TYPE_META[t.type].sign > 0 ? '+' : '−' }}{{ format(t.amount) }}

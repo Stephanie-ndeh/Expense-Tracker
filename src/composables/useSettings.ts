@@ -2,10 +2,60 @@ import { reactive } from 'vue'
 import { supabase } from '../lib/supabaseClient'
 
 const DEFAULT_CURRENCY = 'FCFA'
+const THEME_KEY = 'reckon.theme.v1'
+
+export type Theme = 'system' | 'light' | 'dark'
 
 const state = reactive({
   currency: DEFAULT_CURRENCY,
 })
+
+function loadTheme(): Theme {
+  try {
+    const raw = localStorage.getItem(THEME_KEY)
+    if (raw === 'light' || raw === 'dark' || raw === 'system') return raw
+  } catch {
+    // localStorage unavailable (e.g. private browsing) — fall back to system.
+  }
+  return 'system'
+}
+
+const themeState = reactive({ theme: loadTheme() })
+
+function resolveTheme(theme: Theme): 'light' | 'dark' {
+  if (theme !== 'system') return theme
+  return typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
+
+function applyTheme() {
+  if (typeof document === 'undefined') return
+  const root = document.documentElement
+  if (themeState.theme === 'system') {
+    root.removeAttribute('data-theme')
+  } else {
+    root.setAttribute('data-theme', themeState.theme)
+  }
+  const meta = document.querySelector('meta[name="theme-color"]')
+  if (meta) meta.setAttribute('content', resolveTheme(themeState.theme) === 'dark' ? '#12151c' : '#f7f5f0')
+}
+
+function setTheme(theme: Theme) {
+  themeState.theme = theme
+  try {
+    localStorage.setItem(THEME_KEY, theme)
+  } catch {
+    // ignore — theme just won't persist across reloads
+  }
+  applyTheme()
+}
+
+applyTheme()
+
+if (typeof window !== 'undefined' && window.matchMedia) {
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if (themeState.theme === 'system') applyTheme()
+  })
+}
 
 async function getUserId(): Promise<string | null> {
   if (!supabase) return null
@@ -51,7 +101,7 @@ export function useSettings() {
     const n = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.round(amount))
     return `${n} ${state.currency}`
   }
-  return { settings: state, format, updateCurrency }
+  return { settings: state, format, updateCurrency, theme: themeState, setTheme }
 }
 
 export { loadProfile, clearSettings }
