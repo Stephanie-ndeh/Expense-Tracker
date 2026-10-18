@@ -464,7 +464,7 @@ export function useLedger() {
   const pastTransactions = computed(() => transactions.value.filter((t) => !t.planned && t.date <= today()))
 
   // --- Recent activity: top few for home, full history for the dedicated view ---
-  const recentActivity = computed(() => pastTransactions.value.slice(0, 5))
+  const recentActivity = computed(() => pastTransactions.value.slice(0, 4))
 
   interface ActivityFilters {
     query: string

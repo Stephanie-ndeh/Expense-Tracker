@@ -48,15 +48,15 @@ function dayLabel(date: string) {
 
 <template>
   <div class="px-5 pt-6 pb-2">
-    <div class="flex items-center justify-between mb-2">
-      <h3 class="text-xs uppercase tracking-wide" style="color: var(--text-dim)">Recent activity</h3>
+    <div class="flex items-baseline justify-between mb-1">
+      <h3 class="text-base font-bold">Recent</h3>
       <button
-        v-if="pastTransactions.length > 5"
-        class="text-xs"
+        v-if="pastTransactions.length > 4"
+        class="text-xs font-bold"
         style="color: var(--accent-text)"
         @click="emit('seeAll')"
       >
-        See all ({{ pastTransactions.length }}) ›
+        See all
       </button>
     </div>
 

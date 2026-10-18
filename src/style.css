@@ -17,6 +17,8 @@
   --accent-text: #8a6420;
   --warn-bg: #fbe6dd;
   --warn-text: #9a3f1f;
+  --accent-surface: #f6ecd6;
+  --accent-surface-line: #ead8b0;
 
   /* Gold stays constant across themes; this is the fixed dark text/icon colour drawn on top of it. */
   --on-accent: #12151c;
@@ -38,6 +40,8 @@
     --accent-text: #d9b97a;
     --warn-bg: #2b1d19;
     --warn-text: #f0a98c;
+    --accent-surface: #1d1a14;
+    --accent-surface-line: #3a3122;
   }
 }
 
@@ -56,6 +60,8 @@
   --accent-text: #8a6420;
   --warn-bg: #fbe6dd;
   --warn-text: #9a3f1f;
+  --accent-surface: #f6ecd6;
+  --accent-surface-line: #ead8b0;
 }
 
 :root[data-theme='dark'] {
@@ -73,6 +79,8 @@
   --accent-text: #d9b97a;
   --warn-bg: #2b1d19;
   --warn-text: #f0a98c;
+  --accent-surface: #1d1a14;
+  --accent-surface-line: #3a3122;
 }
 
 body {
