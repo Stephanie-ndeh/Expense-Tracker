@@ -116,18 +116,18 @@ function walletName(id: string | null) {
 </script>
 
 <template>
-  <div class="min-h-screen pb-28" style="background: var(--ink); color: var(--paper)">
+  <div class="min-h-screen pb-28" style="background: var(--bg); color: var(--text)">
     <header class="flex items-center gap-3 px-5 pt-5 pb-2">
-      <button aria-label="Back" class="text-lg leading-none" style="color: var(--paper-dim)" @click="emit('back')">
+      <button aria-label="Back" class="text-lg leading-none" style="color: var(--text-dim)" @click="emit('back')">
         ‹
       </button>
       <h1 class="text-sm font-semibold">Money to-do list</h1>
     </header>
 
     <div class="px-5 pt-2">
-      <p v-if="toggleError" class="text-xs mb-2" style="color: var(--money-out)">{{ toggleError }}</p>
+      <p v-if="toggleError" class="text-xs mb-2" style="color: var(--warn-text)">{{ toggleError }}</p>
 
-      <p v-if="!pending.length && !completed.length" class="text-sm py-6 text-center" style="color: var(--paper-dim)">
+      <p v-if="!pending.length && !completed.length" class="text-sm py-6 text-center" style="color: var(--text-dim)">
         Nothing on your list yet.
       </p>
 
@@ -135,7 +135,7 @@ function walletName(id: string | null) {
         v-for="t in pending"
         :key="t.id"
         class="flex items-center justify-between py-2.5 border-b"
-        style="border-color: var(--ink-line)"
+        style="border-color: var(--line)"
       >
         <label class="flex items-center gap-3 min-w-0">
           <input
@@ -147,7 +147,7 @@ function walletName(id: string | null) {
           />
           <span class="min-w-0">
             <p class="text-sm truncate">{{ t.title }}</p>
-            <p class="text-xs" style="color: var(--paper-dim)">
+            <p class="text-xs" style="color: var(--text-dim)">
               <template v-if="t.amount != null"
                 >{{ format(t.amount) }}<template v-if="t.type"> · {{ TYPE_META[t.type].verb }}</template></template
               >
@@ -156,16 +156,16 @@ function walletName(id: string | null) {
             </p>
           </span>
         </label>
-        <button class="text-xs shrink-0 pl-3" style="color: var(--paper-dim)" @click="pendingDelete = t">✕</button>
+        <button class="text-xs shrink-0 pl-3" style="color: var(--text-dim)" @click="pendingDelete = t">✕</button>
       </div>
 
       <template v-if="completed.length">
-        <h3 class="text-xs uppercase tracking-wide mt-5 mb-1" style="color: var(--paper-dim)">Done</h3>
+        <h3 class="text-xs uppercase tracking-wide mt-5 mb-1" style="color: var(--text-dim)">Done</h3>
         <div
           v-for="t in completed"
           :key="t.id"
           class="flex items-center justify-between py-2.5 border-b"
-          style="border-color: var(--ink-line)"
+          style="border-color: var(--line)"
         >
           <label class="flex items-center gap-3 min-w-0">
             <input
@@ -175,16 +175,16 @@ function walletName(id: string | null) {
               class="accent-[color:var(--accent)] shrink-0"
               @change="toggle(t)"
             />
-            <span class="text-sm truncate line-through" style="color: var(--paper-dim)">{{ t.title }}</span>
+            <span class="text-sm truncate line-through" style="color: var(--text-dim)">{{ t.title }}</span>
           </label>
-          <button class="text-xs shrink-0 pl-3" style="color: var(--paper-dim)" @click="pendingDelete = t">✕</button>
+          <button class="text-xs shrink-0 pl-3" style="color: var(--text-dim)" @click="pendingDelete = t">✕</button>
         </div>
       </template>
     </div>
 
     <button
       class="fixed bottom-6 left-1/2 -translate-x-1/2 px-6 py-3.5 rounded-full font-medium text-sm shadow-lg"
-      style="background: var(--accent); color: var(--ink)"
+      style="background: var(--accent); color: var(--on-accent)"
       @click="openAdd"
     >
       + Add to-do
@@ -194,28 +194,28 @@ function walletName(id: string | null) {
       <div class="absolute inset-0 bg-black/60" @click="showAdd = false" />
       <form
         class="relative w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl p-5 pb-8 sm:pb-5 max-h-[90vh] overflow-y-auto"
-        style="background: var(--ink-raised)"
+        style="background: var(--surface)"
         @submit.prevent="confirmAdd"
       >
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-base font-semibold">New to-do</h2>
-          <button type="button" class="text-sm" style="color: var(--paper-dim)" @click="showAdd = false">Cancel</button>
+          <button type="button" class="text-sm" style="color: var(--text-dim)" @click="showAdd = false">Cancel</button>
         </div>
 
         <label class="block mb-4">
-          <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Title</span>
+          <span class="text-xs uppercase tracking-wide" style="color: var(--text-dim)">Title</span>
           <input
             v-model="form.title"
             type="text"
             required
             autofocus
             class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
-            style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+            style="background: var(--bg); border-color: var(--line); color: var(--text)"
           />
         </label>
 
         <label class="block mb-4">
-          <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Amount (optional)</span>
+          <span class="text-xs uppercase tracking-wide" style="color: var(--text-dim)">Amount (optional)</span>
           <input
             v-model="form.amount"
             type="number"
@@ -224,16 +224,16 @@ function walletName(id: string | null) {
             step="any"
             placeholder="0"
             class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
-            style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+            style="background: var(--bg); border-color: var(--line); color: var(--text)"
           />
         </label>
 
         <label class="block mb-4">
-          <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Type (optional)</span>
+          <span class="text-xs uppercase tracking-wide" style="color: var(--text-dim)">Type (optional)</span>
           <select
             v-model="form.type"
             class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
-            style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+            style="background: var(--bg); border-color: var(--line); color: var(--text)"
           >
             <option value="">None</option>
             <option v-for="t in types" :key="t.value" :value="t.value">{{ t.label }}</option>
@@ -241,11 +241,11 @@ function walletName(id: string | null) {
         </label>
 
         <label v-if="wallets.length > 1" class="block mb-4">
-          <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Wallet (optional)</span>
+          <span class="text-xs uppercase tracking-wide" style="color: var(--text-dim)">Wallet (optional)</span>
           <select
             v-model="form.walletId"
             class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
-            style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+            style="background: var(--bg); border-color: var(--line); color: var(--text)"
           >
             <option value="">None</option>
             <option v-for="w in wallets" :key="w.id" :value="w.id">{{ w.name }}</option>
@@ -253,22 +253,22 @@ function walletName(id: string | null) {
         </label>
 
         <label class="block mb-4">
-          <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Due date (optional)</span>
+          <span class="text-xs uppercase tracking-wide" style="color: var(--text-dim)">Due date (optional)</span>
           <input
             v-model="form.dueDate"
             type="date"
             class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
-            style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+            style="background: var(--bg); border-color: var(--line); color: var(--text)"
           />
         </label>
 
-        <p v-if="addError" class="text-xs mb-3" style="color: var(--money-out)">{{ addError }}</p>
+        <p v-if="addError" class="text-xs mb-3" style="color: var(--warn-text)">{{ addError }}</p>
 
         <button
           type="submit"
           :disabled="adding"
           class="w-full py-3 rounded-xl font-medium text-sm disabled:opacity-50"
-          style="background: var(--accent); color: var(--ink)"
+          style="background: var(--accent); color: var(--on-accent)"
         >
           {{ adding ? 'Saving…' : 'Add to-do' }}
         </button>
@@ -277,21 +277,21 @@ function walletName(id: string | null) {
 
     <div v-if="pendingDelete" class="fixed inset-0 z-50 flex items-center justify-center px-6">
       <div class="absolute inset-0 bg-black/60" @click="pendingDelete = null" />
-      <div class="relative w-full max-w-xs rounded-2xl p-5" style="background: var(--ink-raised)">
+      <div class="relative w-full max-w-xs rounded-2xl p-5" style="background: var(--surface)">
         <h2 class="text-sm font-semibold mb-1">Delete "{{ pendingDelete.title }}"?</h2>
-        <p class="text-sm mb-4" style="color: var(--paper-dim)">This can't be undone.</p>
-        <p v-if="deleteError" class="text-xs mb-3" style="color: var(--money-out)">{{ deleteError }}</p>
+        <p class="text-sm mb-4" style="color: var(--text-dim)">This can't be undone.</p>
+        <p v-if="deleteError" class="text-xs mb-3" style="color: var(--warn-text)">{{ deleteError }}</p>
         <div class="flex gap-2">
           <button
             class="flex-1 py-2.5 rounded-xl text-sm font-medium border"
-            style="border-color: var(--ink-line); color: var(--paper)"
+            style="border-color: var(--line); color: var(--text)"
             @click="pendingDelete = null"
           >
             Cancel
           </button>
           <button
             class="flex-1 py-2.5 rounded-xl text-sm font-medium"
-            style="background: var(--money-out); color: var(--ink)"
+            style="background: var(--money-out); color: var(--bg)"
             @click="confirmDelete"
           >
             Delete

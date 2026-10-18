@@ -103,7 +103,7 @@ async function handleImportFile(e: Event) {
 <template>
   <UpdateBanner />
 
-  <div v-if="syncEnabled && authLoading" class="min-h-screen" style="background: var(--ink)" />
+  <div v-if="syncEnabled && authLoading" class="min-h-screen" style="background: var(--bg)" />
   <AuthGate v-else-if="syncEnabled && !isAuthenticated" />
 
   <template v-else>
@@ -111,10 +111,10 @@ async function handleImportFile(e: Event) {
     <TrendsView v-else-if="view === 'trends'" @back="view = 'home'" />
     <TodosView v-else-if="view === 'todos'" @back="view = 'home'" @log="todoPrefill = $event" />
 
-    <div v-else class="min-h-screen pb-28" style="background: var(--ink); color: var(--paper)">
+    <div v-else class="min-h-screen pb-28" style="background: var(--bg); color: var(--text)">
       <header class="flex items-center justify-between px-5 pt-5">
         <p class="text-sm font-semibold tracking-tight">Reckon</p>
-        <button class="text-xs" style="color: var(--paper-dim)" @click="showSettings = true">
+        <button class="text-xs" style="color: var(--text-dim)" @click="showSettings = true">
           {{ settings.currency }} ⚙
         </button>
       </header>
@@ -129,7 +129,7 @@ async function handleImportFile(e: Event) {
 
       <button
         class="fixed bottom-6 left-1/2 -translate-x-1/2 px-6 py-3.5 rounded-full font-medium text-sm shadow-lg"
-        style="background: var(--accent); color: var(--ink)"
+        style="background: var(--accent); color: var(--on-accent)"
         @click="showAdd = true"
       >
         + Add entry
@@ -139,43 +139,43 @@ async function handleImportFile(e: Event) {
 
       <div v-if="showSettings" class="fixed inset-0 z-50 flex items-center justify-center px-6">
         <div class="absolute inset-0 bg-black/60" @click="showSettings = false" />
-        <div class="relative w-full max-w-xs rounded-2xl p-5" style="background: var(--ink-raised)">
+        <div class="relative w-full max-w-xs rounded-2xl p-5" style="background: var(--surface)">
           <h2 class="text-sm font-semibold mb-3">Settings</h2>
 
           <label class="block mb-4">
-            <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Currency label</span>
+            <span class="text-xs uppercase tracking-wide" style="color: var(--text-dim)">Currency label</span>
             <input
               v-model="settings.currency"
               type="text"
               class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
-              style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+              style="background: var(--bg); border-color: var(--line); color: var(--text)"
               @change="saveCurrency"
             />
           </label>
-          <p v-if="currencyError" class="text-xs -mt-3 mb-4" style="color: var(--money-out)">{{ currencyError }}</p>
+          <p v-if="currencyError" class="text-xs -mt-3 mb-4" style="color: var(--warn-text)">{{ currencyError }}</p>
 
-          <div v-if="syncEnabled" class="border-t pt-4 mt-4" style="border-color: var(--ink-line)">
-            <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Sync</span>
-            <p class="text-xs mt-1" style="color: var(--paper-dim)">{{ userEmail }}</p>
-            <p class="text-xs mt-1" :style="{ color: syncError ? 'var(--money-out)' : 'var(--paper-dim)' }">
+          <div v-if="syncEnabled" class="border-t pt-4 mt-4" style="border-color: var(--line)">
+            <span class="text-xs uppercase tracking-wide" style="color: var(--text-dim)">Sync</span>
+            <p class="text-xs mt-1" style="color: var(--text-dim)">{{ userEmail }}</p>
+            <p class="text-xs mt-1" :style="{ color: syncError ? 'var(--warn-text)' : 'var(--text-dim)' }">
               {{ syncError ? `Sync error: ${syncError}` : syncing ? 'Syncing…' : lastSyncedLabel() }}
             </p>
-            <p v-if="pendingSyncCount" class="text-xs mt-1" style="color: var(--accent)">
+            <p v-if="pendingSyncCount" class="text-xs mt-1" style="color: var(--accent-text)">
               {{ pendingSyncCount }} {{ pendingSyncCount === 1 ? 'entry' : 'entries' }} waiting to sync
             </p>
-            <p v-if="queueError" class="text-xs mt-1" style="color: var(--money-out)">{{ queueError }}</p>
+            <p v-if="queueError" class="text-xs mt-1" style="color: var(--warn-text)">{{ queueError }}</p>
             <div class="flex gap-2 mt-3">
               <button
                 :disabled="syncing"
                 class="flex-1 py-2 rounded-lg text-xs font-medium border disabled:opacity-50"
-                style="border-color: var(--ink-line); color: var(--paper)"
+                style="border-color: var(--line); color: var(--text)"
                 @click="syncNow"
               >
                 Sync now
               </button>
               <button
                 class="flex-1 py-2 rounded-lg text-xs font-medium border"
-                style="border-color: var(--ink-line); color: var(--paper)"
+                style="border-color: var(--line); color: var(--text)"
                 @click="signOut"
               >
                 Sign out
@@ -183,9 +183,9 @@ async function handleImportFile(e: Event) {
             </div>
           </div>
 
-          <div class="border-t pt-4 mt-4" style="border-color: var(--ink-line)">
-            <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Backup</span>
-            <p class="text-xs mt-1 mb-3" style="color: var(--paper-dim)">
+          <div class="border-t pt-4 mt-4" style="border-color: var(--line)">
+            <span class="text-xs uppercase tracking-wide" style="color: var(--text-dim)">Backup</span>
+            <p class="text-xs mt-1 mb-3" style="color: var(--text-dim)">
               {{
                 syncEnabled
                   ? 'Your data syncs to your account, but a local export is still a good habit before switching devices.'
@@ -194,25 +194,25 @@ async function handleImportFile(e: Event) {
             </p>
             <button
               class="w-full py-2 rounded-lg text-xs font-medium border"
-              style="border-color: var(--ink-line); color: var(--paper)"
+              style="border-color: var(--line); color: var(--text)"
               @click="downloadCsv"
             >
               Export backup (CSV)
             </button>
 
             <details class="mt-3">
-              <summary class="text-xs cursor-pointer select-none" style="color: var(--paper-dim)">Advanced</summary>
+              <summary class="text-xs cursor-pointer select-none" style="color: var(--text-dim)">Advanced</summary>
               <div class="flex gap-2 mt-2">
                 <button
                   class="flex-1 py-2 rounded-lg text-xs font-medium border"
-                  style="border-color: var(--ink-line); color: var(--paper)"
+                  style="border-color: var(--line); color: var(--text)"
                   @click="downloadBackup"
                 >
                   Export JSON
                 </button>
                 <button
                   class="flex-1 py-2 rounded-lg text-xs font-medium border"
-                  style="border-color: var(--ink-line); color: var(--paper)"
+                  style="border-color: var(--line); color: var(--text)"
                   @click="triggerImport"
                 >
                   Import JSON
@@ -220,12 +220,12 @@ async function handleImportFile(e: Event) {
               </div>
             </details>
             <input ref="importFile" type="file" accept="application/json" class="hidden" @change="handleImportFile" />
-            <p v-if="importMessage" class="text-xs mt-2" style="color: var(--accent)">{{ importMessage }}</p>
+            <p v-if="importMessage" class="text-xs mt-2" style="color: var(--accent-text)">{{ importMessage }}</p>
           </div>
 
           <button
             class="w-full mt-5 py-2.5 rounded-xl text-sm font-medium"
-            style="background: var(--accent); color: var(--ink)"
+            style="background: var(--accent); color: var(--on-accent)"
             @click="showSettings = false"
           >
             Done

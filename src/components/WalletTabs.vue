@@ -87,8 +87,8 @@ async function confirmDeleteWallet() {
         class="shrink-0 text-xs px-3 py-1.5 rounded-full border whitespace-nowrap"
         :style="
           activeWalletId === 'all'
-            ? { background: 'var(--paper)', color: 'var(--ink)', borderColor: 'var(--paper)' }
-            : { borderColor: 'var(--ink-line)', color: 'var(--paper-dim)' }
+            ? { background: 'var(--text)', color: 'var(--bg)', borderColor: 'var(--text)' }
+            : { borderColor: 'var(--line)', color: 'var(--text-dim)' }
         "
         @click="activeWalletId = 'all'"
       >
@@ -100,8 +100,8 @@ async function confirmDeleteWallet() {
         class="shrink-0 flex items-center rounded-full border whitespace-nowrap overflow-hidden"
         :style="
           activeWalletId === w.id
-            ? { background: 'var(--paper)', color: 'var(--ink)', borderColor: 'var(--paper)' }
-            : { borderColor: 'var(--ink-line)', color: 'var(--paper-dim)' }
+            ? { background: 'var(--text)', color: 'var(--bg)', borderColor: 'var(--text)' }
+            : { borderColor: 'var(--line)', color: 'var(--text-dim)' }
         "
       >
         <button class="text-xs pl-3 py-1.5 pr-1" @click="activeWalletId = w.id">
@@ -127,7 +127,7 @@ async function confirmDeleteWallet() {
       <button
         aria-label="Add wallet"
         class="shrink-0 text-xs w-7 h-7 flex items-center justify-center rounded-full border"
-        style="border-color: var(--ink-line); color: var(--paper-dim)"
+        style="border-color: var(--line); color: var(--text-dim)"
         @click="openAddWallet"
       >
         +
@@ -136,27 +136,27 @@ async function confirmDeleteWallet() {
 
     <div v-if="pendingRename" class="fixed inset-0 z-50 flex items-center justify-center px-6">
       <div class="absolute inset-0 bg-black/60" @click="pendingRename = null" />
-      <div class="relative w-full max-w-xs rounded-2xl p-5" style="background: var(--ink-raised)">
+      <div class="relative w-full max-w-xs rounded-2xl p-5" style="background: var(--surface)">
         <h2 class="text-sm font-semibold mb-3">Rename wallet</h2>
 
         <label class="block mb-4">
-          <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Name</span>
+          <span class="text-xs uppercase tracking-wide" style="color: var(--text-dim)">Name</span>
           <input
             v-model="renameValue"
             type="text"
             autofocus
             class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
-            style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+            style="background: var(--bg); border-color: var(--line); color: var(--text)"
             @keyup.enter="confirmRenameWallet"
           />
         </label>
 
-        <p v-if="renameError" class="text-xs mb-3" style="color: var(--money-out)">{{ renameError }}</p>
+        <p v-if="renameError" class="text-xs mb-3" style="color: var(--warn-text)">{{ renameError }}</p>
 
         <div class="flex gap-2">
           <button
             class="flex-1 py-2 rounded-lg text-xs font-medium border"
-            style="border-color: var(--ink-line); color: var(--paper)"
+            style="border-color: var(--line); color: var(--text)"
             @click="pendingRename = null"
           >
             Cancel
@@ -164,7 +164,7 @@ async function confirmDeleteWallet() {
           <button
             :disabled="renaming"
             class="flex-1 py-2 rounded-lg text-xs font-medium disabled:opacity-50"
-            style="background: var(--accent); color: var(--ink)"
+            style="background: var(--accent); color: var(--on-accent)"
             @click="confirmRenameWallet"
           >
             {{ renaming ? 'Saving…' : 'Save' }}
@@ -175,28 +175,28 @@ async function confirmDeleteWallet() {
 
     <div v-if="showAddWallet" class="fixed inset-0 z-50 flex items-center justify-center px-6">
       <div class="absolute inset-0 bg-black/60" @click="showAddWallet = false" />
-      <div class="relative w-full max-w-xs rounded-2xl p-5" style="background: var(--ink-raised)">
+      <div class="relative w-full max-w-xs rounded-2xl p-5" style="background: var(--surface)">
         <h2 class="text-sm font-semibold mb-3">New wallet</h2>
 
         <label class="block mb-4">
-          <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Name</span>
+          <span class="text-xs uppercase tracking-wide" style="color: var(--text-dim)">Name</span>
           <input
             v-model="newWalletName"
             type="text"
             autofocus
             placeholder="e.g. Business"
             class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
-            style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+            style="background: var(--bg); border-color: var(--line); color: var(--text)"
             @keyup.enter="confirmAddWallet"
           />
         </label>
 
-        <p v-if="addError" class="text-xs mb-3" style="color: var(--money-out)">{{ addError }}</p>
+        <p v-if="addError" class="text-xs mb-3" style="color: var(--warn-text)">{{ addError }}</p>
 
         <div class="flex gap-2">
           <button
             class="flex-1 py-2 rounded-lg text-xs font-medium border"
-            style="border-color: var(--ink-line); color: var(--paper)"
+            style="border-color: var(--line); color: var(--text)"
             @click="showAddWallet = false"
           >
             Cancel
@@ -204,7 +204,7 @@ async function confirmDeleteWallet() {
           <button
             :disabled="adding"
             class="flex-1 py-2 rounded-lg text-xs font-medium disabled:opacity-50"
-            style="background: var(--accent); color: var(--ink)"
+            style="background: var(--accent); color: var(--on-accent)"
             @click="confirmAddWallet"
           >
             {{ adding ? 'Adding…' : 'Add wallet' }}
@@ -215,16 +215,16 @@ async function confirmDeleteWallet() {
 
     <div v-if="pendingDelete" class="fixed inset-0 z-50 flex items-center justify-center px-6">
       <div class="absolute inset-0 bg-black/60" @click="pendingDelete = null" />
-      <div class="relative w-full max-w-xs rounded-2xl p-5" style="background: var(--ink-raised)">
+      <div class="relative w-full max-w-xs rounded-2xl p-5" style="background: var(--surface)">
         <h2 class="text-sm font-semibold mb-1">Delete "{{ pendingDelete.name }}"?</h2>
-        <p class="text-sm mb-4" style="color: var(--paper-dim)">This can't be undone.</p>
+        <p class="text-sm mb-4" style="color: var(--text-dim)">This can't be undone.</p>
 
-        <p v-if="deleteError" class="text-xs mb-3" style="color: var(--money-out)">{{ deleteError }}</p>
+        <p v-if="deleteError" class="text-xs mb-3" style="color: var(--warn-text)">{{ deleteError }}</p>
 
         <div class="flex gap-2">
           <button
             class="flex-1 py-2.5 rounded-xl text-sm font-medium border"
-            style="border-color: var(--ink-line); color: var(--paper)"
+            style="border-color: var(--line); color: var(--text)"
             @click="pendingDelete = null"
           >
             Cancel
@@ -232,7 +232,7 @@ async function confirmDeleteWallet() {
           <button
             :disabled="deleting"
             class="flex-1 py-2.5 rounded-xl text-sm font-medium disabled:opacity-50"
-            style="background: var(--money-out); color: var(--ink)"
+            style="background: var(--money-out); color: var(--bg)"
             @click="confirmDeleteWallet"
           >
             {{ deleting ? 'Deleting…' : 'Delete' }}

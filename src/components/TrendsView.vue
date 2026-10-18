@@ -26,9 +26,9 @@ const incomeDelta = computed(() => delta(monthComparison.value.income.current, m
 </script>
 
 <template>
-  <div class="min-h-screen pb-10" style="background: var(--ink); color: var(--paper)">
+  <div class="min-h-screen pb-10" style="background: var(--bg); color: var(--text)">
     <header class="flex items-center gap-3 px-5 pt-5 pb-2">
-      <button aria-label="Back" class="text-lg leading-none" style="color: var(--paper-dim)" @click="emit('back')">
+      <button aria-label="Back" class="text-lg leading-none" style="color: var(--text-dim)" @click="emit('back')">
         ‹
       </button>
       <h1 class="text-sm font-semibold">Trends</h1>
@@ -37,7 +37,7 @@ const incomeDelta = computed(() => delta(monthComparison.value.income.current, m
     <!-- Chart -->
     <div class="px-5 pt-4">
       <div class="flex items-center justify-between mb-4">
-        <div class="flex items-center gap-3 text-[11px]" style="color: var(--paper-dim)">
+        <div class="flex items-center gap-3 text-[11px]" style="color: var(--text-dim)">
           <span class="flex items-center gap-1"
             ><span class="w-2 h-2 rounded-full inline-block" style="background: var(--money-in)" /> Income</span
           >
@@ -52,8 +52,8 @@ const incomeDelta = computed(() => delta(monthComparison.value.income.current, m
             class="text-[11px] px-2 py-1 rounded-md border"
             :style="
               months === m
-                ? { background: 'var(--paper)', color: 'var(--ink)', borderColor: 'var(--paper)' }
-                : { borderColor: 'var(--ink-line)', color: 'var(--paper-dim)' }
+                ? { background: 'var(--text)', color: 'var(--bg)', borderColor: 'var(--text)' }
+                : { borderColor: 'var(--line)', color: 'var(--text-dim)' }
             "
             @click="months = m"
           >
@@ -84,29 +84,29 @@ const incomeDelta = computed(() => delta(monthComparison.value.income.current, m
               :title="format(m.expense)"
             />
           </div>
-          <span class="text-[10px] mt-2" style="color: var(--paper-dim)">{{ m.label }}</span>
+          <span class="text-[10px] mt-2" style="color: var(--text-dim)">{{ m.label }}</span>
         </div>
       </div>
     </div>
 
     <!-- Month over month -->
     <div class="px-5 pt-8">
-      <h3 class="text-xs uppercase tracking-wide mb-3" style="color: var(--paper-dim)">
+      <h3 class="text-xs uppercase tracking-wide mb-3" style="color: var(--text-dim)">
         {{ monthComparison.currentLabel }} vs {{ monthComparison.previousLabel }}
       </h3>
-      <div class="grid grid-cols-2 gap-px" :style="{ background: 'var(--ink-line)' }">
-        <div class="px-3 py-4" style="background: var(--ink)">
-          <p class="text-[11px] uppercase tracking-wide" style="color: var(--paper-dim)">Spent</p>
-          <p class="font-mono text-lg font-medium mt-1 tabular-nums" style="color: var(--money-out)">
+      <div class="grid grid-cols-2 gap-px" :style="{ background: 'var(--line)' }">
+        <div class="px-3 py-4" style="background: var(--bg)">
+          <p class="text-[11px] uppercase tracking-wide" style="color: var(--text-dim)">Spent</p>
+          <p class="text-lg font-medium mt-1 tabular-nums" style="color: var(--money-out)">
             {{ format(monthComparison.expense.current) }}
           </p>
           <p class="text-xs mt-0.5" :style="{ color: expenseDelta > 0 ? 'var(--money-out)' : 'var(--money-in)' }">
             {{ expenseDelta > 0 ? '↑' : expenseDelta < 0 ? '↓' : '·' }} {{ Math.abs(expenseDelta) }}% vs last month
           </p>
         </div>
-        <div class="px-3 py-4" style="background: var(--ink)">
-          <p class="text-[11px] uppercase tracking-wide" style="color: var(--paper-dim)">Received</p>
-          <p class="font-mono text-lg font-medium mt-1 tabular-nums" style="color: var(--money-in)">
+        <div class="px-3 py-4" style="background: var(--bg)">
+          <p class="text-[11px] uppercase tracking-wide" style="color: var(--text-dim)">Received</p>
+          <p class="text-lg font-medium mt-1 tabular-nums" style="color: var(--money-in)">
             {{ format(monthComparison.income.current) }}
           </p>
           <p class="text-xs mt-0.5" :style="{ color: incomeDelta >= 0 ? 'var(--money-in)' : 'var(--money-out)' }">
@@ -118,26 +118,24 @@ const incomeDelta = computed(() => delta(monthComparison.value.income.current, m
 
     <!-- Savings snapshot -->
     <div class="px-5 pt-6">
-      <h3 class="text-xs uppercase tracking-wide mb-2" style="color: var(--paper-dim)">Savings</h3>
-      <div class="flex items-baseline justify-between py-3 border-b" style="border-color: var(--ink-line)">
-        <span class="text-sm" style="color: var(--paper-dim)">Total saved so far</span>
-        <span class="font-mono text-lg font-medium tabular-nums" style="color: var(--accent)">{{
-          format(savings)
-        }}</span>
+      <h3 class="text-xs uppercase tracking-wide mb-2" style="color: var(--text-dim)">Savings</h3>
+      <div class="flex items-baseline justify-between py-3 border-b" style="border-color: var(--line)">
+        <span class="text-sm" style="color: var(--text-dim)">Total saved so far</span>
+        <span class="text-lg font-medium tabular-nums" style="color: var(--savings)">{{ format(savings) }}</span>
       </div>
     </div>
 
     <!-- Category comparison -->
     <div class="px-5 pt-6">
-      <h3 class="text-xs uppercase tracking-wide mb-2" style="color: var(--paper-dim)">Where it went this month</h3>
-      <p v-if="!categoryComparison.length" class="text-sm py-6 text-center" style="color: var(--paper-dim)">
+      <h3 class="text-xs uppercase tracking-wide mb-2" style="color: var(--text-dim)">Where it went this month</h3>
+      <p v-if="!categoryComparison.length" class="text-sm py-6 text-center" style="color: var(--text-dim)">
         No expenses logged this month yet.
       </p>
       <div
         v-for="c in categoryComparison"
         :key="c.label"
         class="flex items-center justify-between py-2.5 border-b"
-        style="border-color: var(--ink-line)"
+        style="border-color: var(--line)"
       >
         <span class="text-sm truncate">{{ c.label }}</span>
         <div class="flex items-center gap-3 shrink-0">
@@ -150,17 +148,17 @@ const incomeDelta = computed(() => delta(monthComparison.value.income.current, m
                   ? 'var(--money-out)'
                   : c.current < c.previous
                     ? 'var(--money-in)'
-                    : 'var(--paper-dim)',
+                    : 'var(--text-dim)',
             }"
           >
             {{ c.current > c.previous ? '↑' : c.current < c.previous ? '↓' : '·' }} was {{ format(c.previous) }}
           </span>
-          <span class="font-mono text-sm font-medium tabular-nums">{{ format(c.current) }}</span>
+          <span class="text-sm font-medium tabular-nums">{{ format(c.current) }}</span>
         </div>
       </div>
     </div>
 
-    <p class="px-5 pt-8 text-xs" style="color: var(--paper-dim)">
+    <p class="px-5 pt-8 text-xs" style="color: var(--text-dim)">
       This month so far: {{ format(thisMonthSpend) }} spent.
     </p>
   </div>

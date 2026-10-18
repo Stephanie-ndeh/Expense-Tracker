@@ -15,12 +15,12 @@ const { needRefresh, updateServiceWorker } = useRegisterSW({
   <div
     v-if="needRefresh"
     class="fixed inset-x-0 bottom-0 z-[70] flex items-center justify-between gap-3 px-5 py-3"
-    style="background: var(--ink-raised); border-top: 1px solid var(--ink-line)"
+    style="background: var(--surface); border-top: 1px solid var(--line)"
   >
-    <p class="text-xs" style="color: var(--paper)">A new version is ready.</p>
+    <p class="text-xs" style="color: var(--text)">A new version is ready.</p>
     <button
       class="text-xs font-medium px-3 py-1.5 rounded-lg shrink-0"
-      style="background: var(--accent); color: var(--ink)"
+      style="background: var(--accent); color: var(--on-accent)"
       @click="updateServiceWorker(true)"
     >
       Reload

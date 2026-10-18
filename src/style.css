@@ -1,38 +1,89 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
 @import 'tailwindcss';
 
 :root {
-  --ink: #12151c;
-  --ink-raised: #1a1e28;
-  --ink-line: #2a2f3c;
-  --paper: #f2efea;
-  --paper-dim: #a9adba;
-  --money-in: #6fbf94;
-  --money-out: #c97a5c;
+  color-scheme: light;
+
+  --bg: #f7f5f0;
+  --surface: #ffffff;
+  --line: #e6e2d9;
+  --nav: #ffffff;
+  --text: #1a1d24;
+  --text-dim: #5f6472;
+  --money-in: #1f7a4d;
+  --money-out: #b4532f;
+  --savings: #2f6fb0;
   --accent: #d9b97a;
+  --accent-text: #8a6420;
+  --warn-bg: #fbe6dd;
+  --warn-text: #9a3f1f;
+
+  /* Gold stays constant across themes; this is the fixed dark text/icon colour drawn on top of it. */
+  --on-accent: #12151c;
 }
 
-html {
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --bg: #12151c;
+    --surface: #1a1e28;
+    --line: #2a2f3c;
+    --nav: #151922;
+    --text: #f2efea;
+    --text-dim: #a9adba;
+    --money-in: #7fd1a4;
+    --money-out: #d9764f;
+    --savings: #7fb2e5;
+    --accent-text: #d9b97a;
+    --warn-bg: #2b1d19;
+    --warn-text: #f0a98c;
+  }
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --bg: #f7f5f0;
+  --surface: #ffffff;
+  --line: #e6e2d9;
+  --nav: #ffffff;
+  --text: #1a1d24;
+  --text-dim: #5f6472;
+  --money-in: #1f7a4d;
+  --money-out: #b4532f;
+  --savings: #2f6fb0;
+  --accent-text: #8a6420;
+  --warn-bg: #fbe6dd;
+  --warn-text: #9a3f1f;
+}
+
+:root[data-theme='dark'] {
   color-scheme: dark;
+
+  --bg: #12151c;
+  --surface: #1a1e28;
+  --line: #2a2f3c;
+  --nav: #151922;
+  --text: #f2efea;
+  --text-dim: #a9adba;
+  --money-in: #7fd1a4;
+  --money-out: #d9764f;
+  --savings: #7fb2e5;
+  --accent-text: #d9b97a;
+  --warn-bg: #2b1d19;
+  --warn-text: #f0a98c;
 }
 
 body {
-  background: var(--ink);
-  color: var(--paper);
-  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Manrope', system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
   -webkit-tap-highlight-color: transparent;
-}
-
-.font-mono {
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
 }
 
 ::selection {
   background: var(--accent);
-  color: var(--ink);
-}
-
-input,
-select {
-  color-scheme: dark;
+  color: var(--on-accent);
 }
