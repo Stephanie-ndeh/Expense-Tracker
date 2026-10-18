@@ -10,7 +10,7 @@ import type { Transaction, TransactionType } from '../types/transaction'
 import ConfirmDeleteModal from './ConfirmDeleteModal.vue'
 import SwipeRow from './SwipeRow.vue'
 
-const emit = defineEmits<{ back: []; edit: [transaction: Transaction] }>()
+const emit = defineEmits<{ edit: [transaction: Transaction] }>()
 const { filterActivity, activityTotal, removeTransaction } = useLedger()
 const { format } = useSettings()
 const { wallets } = useWallets()
@@ -139,14 +139,7 @@ function dayLabel(date: string) {
 </script>
 
 <template>
-  <div class="min-h-screen pb-10" style="background: var(--bg); color: var(--text)">
-    <header class="flex items-center gap-3 px-5 pt-5 pb-2">
-      <button aria-label="Back" class="text-lg leading-none" style="color: var(--text-dim)" @click="emit('back')">
-        ‹
-      </button>
-      <h1 class="text-sm font-semibold">All activity</h1>
-    </header>
-
+  <div class="pb-10">
     <div class="px-5 pt-2 space-y-3">
       <input
         v-model="query"

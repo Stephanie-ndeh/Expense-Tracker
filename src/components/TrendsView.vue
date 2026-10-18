@@ -3,7 +3,6 @@ import { computed, ref } from 'vue'
 import { useLedger } from '../composables/useLedger'
 import { useSettings } from '../composables/useSettings'
 
-const emit = defineEmits<{ back: [] }>()
 const { monthlyTrend, monthComparison, categoryComparison, savings, thisMonthSpend } = useLedger()
 const { format } = useSettings()
 
@@ -26,14 +25,7 @@ const incomeDelta = computed(() => delta(monthComparison.value.income.current, m
 </script>
 
 <template>
-  <div class="min-h-screen pb-10" style="background: var(--bg); color: var(--text)">
-    <header class="flex items-center gap-3 px-5 pt-5 pb-2">
-      <button aria-label="Back" class="text-lg leading-none" style="color: var(--text-dim)" @click="emit('back')">
-        ‹
-      </button>
-      <h1 class="text-sm font-semibold">Trends</h1>
-    </header>
-
+  <div class="pb-10">
     <!-- Chart -->
     <div class="px-5 pt-4">
       <div class="flex items-center justify-between mb-4">
