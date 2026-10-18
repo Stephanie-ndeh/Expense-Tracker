@@ -7,16 +7,15 @@ const emit = defineEmits<{ openInsights: [] }>()
 const { monthComparison } = useLedger()
 const { format } = useSettings()
 
-const previousMonthName = computed(() => monthComparison.value.previousLabel.split(' ')[0])
+const comparison = computed(() => monthComparison(0))
+const previousMonthName = computed(() => comparison.value.previousLabel.split(' ')[0])
 
 function delta(current: number, previous: number) {
   if (previous === 0) return current === 0 ? 0 : 100
   return Math.round(((current - previous) / previous) * 100)
 }
 
-const expenseDelta = computed(() =>
-  delta(monthComparison.value.expense.current, monthComparison.value.expense.previous),
-)
+const expenseDelta = computed(() => delta(comparison.value.expense.current, comparison.value.expense.previous))
 </script>
 
 <template>
@@ -29,8 +28,8 @@ const expenseDelta = computed(() =>
     <div class="flex-1 min-w-0 flex flex-col gap-1">
       <p class="text-xs font-bold" style="color: var(--accent-text)">This month</p>
       <p class="text-sm leading-snug" style="color: var(--text)">
-        Spent <b class="font-bold">{{ format(monthComparison.expense.current) }}</b> · received
-        <b class="font-bold">{{ format(monthComparison.income.current) }}</b
+        Spent <b class="font-bold">{{ format(comparison.expense.current) }}</b> · received
+        <b class="font-bold">{{ format(comparison.income.current) }}</b
         >. {{ expenseDelta > 0 ? 'Up' : expenseDelta < 0 ? 'Down' : 'Flat' }} {{ Math.abs(expenseDelta) }}% on
         {{ previousMonthName }}.
       </p>

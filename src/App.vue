@@ -3,8 +3,7 @@ import { ref } from 'vue'
 import HomeView from './components/HomeView.vue'
 import AddEntry from './components/AddEntry.vue'
 import PeopleView from './components/PeopleView.vue'
-import AllActivityView from './components/AllActivityView.vue'
-import TrendsView from './components/TrendsView.vue'
+import ActivityView from './components/ActivityView.vue'
 import TodosView from './components/TodosView.vue'
 import MeView from './components/MeView.vue'
 import AppearanceView from './components/AppearanceView.vue'
@@ -36,6 +35,11 @@ function openActivity(tab: 'list' | 'insights') {
   activityTab.value = tab
   view.value = 'activity'
 }
+
+function navigate(v: NavView) {
+  if (v === 'activity') activityTab.value = 'list'
+  view.value = v
+}
 </script>
 
 <template>
@@ -59,46 +63,14 @@ function openActivity(tab: 'list' | 'insights') {
           @log-prefill="todoPrefill = $event"
         />
 
-        <template v-else-if="view === 'activity'">
-          <header class="px-5 pt-5 pb-2">
-            <h1 class="text-sm font-semibold mb-3">Activity</h1>
-            <div class="flex gap-2">
-              <button
-                type="button"
-                class="flex-1 text-xs py-2 rounded-lg border font-medium"
-                :style="
-                  activityTab === 'list'
-                    ? { background: 'var(--text)', color: 'var(--bg)', borderColor: 'var(--text)' }
-                    : { borderColor: 'var(--line)', color: 'var(--text-dim)' }
-                "
-                @click="activityTab = 'list'"
-              >
-                List
-              </button>
-              <button
-                type="button"
-                class="flex-1 text-xs py-2 rounded-lg border font-medium"
-                :style="
-                  activityTab === 'insights'
-                    ? { background: 'var(--text)', color: 'var(--bg)', borderColor: 'var(--text)' }
-                    : { borderColor: 'var(--line)', color: 'var(--text-dim)' }
-                "
-                @click="activityTab = 'insights'"
-              >
-                Insights
-              </button>
-            </div>
-          </header>
-          <AllActivityView v-if="activityTab === 'list'" @edit="editingTransaction = $event" />
-          <TrendsView v-else />
-        </template>
+        <ActivityView v-else-if="view === 'activity'" :initial-tab="activityTab" @edit="editingTransaction = $event" />
 
         <TodosView v-else-if="view === 'todos'" @log="todoPrefill = $event" />
 
         <MeView v-else-if="view === 'me'" @open-appearance="view = 'appearance'" />
       </div>
 
-      <BottomNav :active="view" @navigate="view = $event" @add="showAdd = true" />
+      <BottomNav :active="view" @navigate="navigate" @add="showAdd = true" />
 
       <PeopleView v-if="showPeople" @close="showPeople = false" />
     </template>
