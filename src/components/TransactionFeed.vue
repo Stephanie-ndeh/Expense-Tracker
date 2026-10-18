@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useLedger } from '../composables/useLedger'
 import { useSettings } from '../composables/useSettings'
+import { useSwipeHint } from '../composables/useSwipeHint'
 import { TYPE_META } from '../types/transaction'
 import type { Transaction } from '../types/transaction'
 import ConfirmDeleteModal from './ConfirmDeleteModal.vue'
@@ -10,6 +11,12 @@ import SwipeRow from './SwipeRow.vue'
 const emit = defineEmits<{ edit: [transaction: Transaction] }>()
 const { upcoming, removeTransaction, markSettled } = useLedger()
 const { format } = useSettings()
+
+// Snapshot once at setup — the hint should stay visible for this view even after markSeen() flips the shared flag.
+// Only actually "spends" the one-time flag if there's something here for it to be shown against.
+const { show, markSeen } = useSwipeHint()
+const showSwipeHint = show.value && upcoming.value.length > 0
+if (showSwipeHint) markSeen()
 
 const pendingDelete = ref<Transaction | null>(null)
 const deleteError = ref('')
@@ -45,7 +52,9 @@ function cancelDelete() {
   <div v-if="upcoming.length" class="px-5 pt-6 pb-2">
     <h3 class="text-xs uppercase tracking-wide mb-2" style="color: var(--text-dim)">Coming up</h3>
     <p v-if="settleError" class="text-xs mb-2" style="color: var(--warn-text)">{{ settleError }}</p>
-    <p class="text-[11px] mb-1" style="color: var(--text-dim)">Swipe left to delete · swipe right to edit.</p>
+    <p v-if="showSwipeHint" class="text-[11px] mb-1" style="color: var(--text-dim)">
+      Swipe left to delete · swipe right to edit.
+    </p>
     <SwipeRow
       v-for="t in upcoming"
       :key="t.id"

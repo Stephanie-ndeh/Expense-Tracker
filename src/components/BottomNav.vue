@@ -1,7 +1,10 @@
 <script setup lang="ts">
 type NavItem = 'home' | 'activity' | 'todos' | 'me'
 
-defineProps<{ active: 'home' | 'activity' | 'todos' | 'me' | 'appearance' | 'pro' }>()
+defineProps<{
+  active: 'home' | 'activity' | 'todos' | 'me' | 'appearance' | 'pro' | 'categories'
+  overdueCount: number
+}>()
 const emit = defineEmits<{ navigate: [view: NavItem]; add: [] }>()
 </script>
 
@@ -89,7 +92,8 @@ const emit = defineEmits<{ navigate: [view: NavItem]; add: [] }>()
 
     <button
       type="button"
-      class="flex flex-col items-center gap-1 text-[11px]"
+      class="relative flex flex-col items-center gap-1 text-[11px]"
+      :aria-label="overdueCount ? `To-dos, ${overdueCount} overdue` : 'To-dos'"
       :style="{
         color: active === 'todos' ? 'var(--accent-text)' : 'var(--text-dim)',
         fontWeight: active === 'todos' ? 700 : 600,
@@ -111,6 +115,25 @@ const emit = defineEmits<{ navigate: [view: NavItem]; add: [] }>()
         <path d="m8 12 3 3 5-6" />
       </svg>
       To-dos
+      <span
+        v-if="overdueCount"
+        class="absolute flex items-center justify-center font-extrabold"
+        style="
+          top: -4px;
+          left: calc(50% + 6px);
+          min-width: 18px;
+          height: 18px;
+          padding: 0 5px;
+          box-sizing: border-box;
+          border-radius: 9px;
+          background: var(--money-out);
+          color: var(--on-accent);
+          font-size: 11px;
+          border: 2px solid var(--nav);
+        "
+      >
+        {{ overdueCount }}
+      </span>
     </button>
 
     <button

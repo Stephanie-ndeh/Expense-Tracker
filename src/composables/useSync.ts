@@ -27,7 +27,7 @@ async function loadAll() {
 
     const { wallets, replaceWallets, createDefaultWallet } = useWallets()
     const { replaceTransactions, flushPendingTransactions } = useLedger()
-    const { replaceCategories } = useCategories()
+    const { replaceCategories, seedDefaultCategories } = useCategories()
     const { replacePeople } = usePeople()
     const { replaceTodos } = useTodos()
 
@@ -59,7 +59,7 @@ async function loadAll() {
     if (peopleError) throw peopleError
     if (todosError) throw todosError
 
-    await loadProfile()
+    const isNewAccount = await loadProfile()
 
     replaceWallets((walletRows ?? []).map(rowToWallet))
     replaceTransactions((txRows ?? []).map(rowToTransaction))
@@ -68,6 +68,9 @@ async function loadAll() {
     replaceTodos((todoRows ?? []).map(rowToTodo))
 
     if (!wallets.value.length) await createDefaultWallet()
+    // Keyed off "profile row didn't exist yet", not "category list is currently empty" — an existing
+    // account that merges/hides every category down to zero must never be re-seeded.
+    if (isNewAccount) await seedDefaultCategories()
 
     status.lastSyncedAt = Date.now()
   } catch (err) {

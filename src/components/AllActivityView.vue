@@ -5,6 +5,7 @@ import { useSettings } from '../composables/useSettings'
 import { useWallets } from '../composables/useWallets'
 import { useCategories } from '../composables/useCategories'
 import { usePeople } from '../composables/usePeople'
+import { useSwipeHint } from '../composables/useSwipeHint'
 import { TYPE_META } from '../types/transaction'
 import type { Transaction, TransactionType } from '../types/transaction'
 import ConfirmDeleteModal from './ConfirmDeleteModal.vue'
@@ -163,6 +164,12 @@ const list = computed(() =>
 )
 
 const total = computed(() => activityTotal(list.value))
+
+// Snapshot once at setup — the hint should stay visible for this view even after markSeen() flips the shared flag.
+// Only actually "spends" the one-time flag if there's something here for it to be shown against.
+const { show, markSeen } = useSwipeHint()
+const showSwipeHint = show.value && list.value.length > 0
+if (showSwipeHint) markSeen()
 
 function dayLabel(date: string) {
   const d = new Date(date + 'T00:00:00')
@@ -370,7 +377,7 @@ async function confirmDelete() {
         </SwipeRow>
       </div>
 
-      <p v-if="list.length" class="text-[11px] mt-3" style="color: var(--text-dim)">
+      <p v-if="showSwipeHint" class="text-[11px] mt-3" style="color: var(--text-dim)">
         Swipe left to delete · swipe right to edit.
       </p>
     </div>
