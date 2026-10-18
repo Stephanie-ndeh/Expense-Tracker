@@ -170,6 +170,16 @@ export function useLedger() {
       settled.value.filter((t) => TYPE_META[t.type].group === 'debt').reduce((sum, t) => sum + signedAmount(t), 0),
   )
 
+  /** Same formula as `balance`, but scoped to an arbitrary wallet instead of the shared activeWalletId — for display contexts (e.g. the Me screen's wallet list) that need more than one wallet's figure at once. */
+  function balanceForWallet(walletId: string) {
+    const settledForWallet = state.transactions.filter(
+      (t) => t.walletId === walletId && !t.planned && t.date <= today(),
+    )
+    const sumGroup = (group: (typeof TYPE_META)[TransactionType]['group']) =>
+      settledForWallet.filter((t) => TYPE_META[t.type].group === group).reduce((sum, t) => sum + signedAmount(t), 0)
+    return sumGroup('cash') - sumGroup('savings') + sumGroup('lending') + sumGroup('transfer') + sumGroup('debt')
+  }
+
   const savings = computed(() =>
     settled.value.filter((t) => TYPE_META[t.type].group === 'savings').reduce((sum, t) => sum + signedAmount(t), 0),
   )
@@ -676,6 +686,7 @@ export function useLedger() {
     transactions,
     upcoming,
     balance,
+    balanceForWallet,
     savings,
     owedToYou,
     totalOwedToYou,

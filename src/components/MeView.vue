@@ -1,19 +1,28 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useWallets } from '../composables/useWallets'
 import { useSettings } from '../composables/useSettings'
 import { useLedger } from '../composables/useLedger'
+import { useCategories } from '../composables/useCategories'
+import { usePeople } from '../composables/usePeople'
 import { useAuth } from '../composables/useAuth'
 import { useSync } from '../composables/useSync'
 import type { Wallet } from '../types/wallet'
 
-const emit = defineEmits<{ openAppearance: [] }>()
+const emit = defineEmits<{ openAppearance: []; openPro: []; openPeople: [] }>()
 
 const { wallets, addWallet, renameWallet, removeWallet } = useWallets()
-const { settings, updateCurrency } = useSettings()
-const { exportData, exportCsv, importData, pendingSyncCount } = useLedger()
+const { settings, updateCurrency, format } = useSettings()
+const { exportData, exportCsv, importData, pendingSyncCount, balanceForWallet } = useLedger()
+const { categories } = useCategories()
+const { people } = usePeople()
 const { enabled: syncEnabled, userEmail, signOut } = useAuth()
 const { syncing, lastSyncedAt, error: syncError, queueError, syncNow } = useSync()
+
+const displayName = computed(() => {
+  const local = userEmail.value?.split('@')[0] ?? 'You'
+  return local.charAt(0).toUpperCase() + local.slice(1)
+})
 
 const currencyError = ref('')
 async function saveCurrency() {
@@ -151,164 +160,261 @@ async function confirmDeleteWallet() {
 </script>
 
 <template>
-  <div class="pb-10" style="background: var(--bg); color: var(--text); min-height: 100vh">
-    <header class="flex items-center px-5 pt-5 pb-2">
-      <h1 class="text-sm font-semibold">Me</h1>
-    </header>
-
-    <div class="px-5 pt-2 flex flex-col gap-6">
-      <section class="flex flex-col gap-2">
-        <div class="flex items-center justify-between">
-          <h2 class="text-xs uppercase tracking-wide" style="color: var(--text-dim)">Wallets</h2>
-          <button type="button" class="text-xs font-semibold" style="color: var(--accent-text)" @click="openAddWallet">
-            + Add wallet
-          </button>
-        </div>
-        <div class="rounded-2xl border overflow-hidden" style="background: var(--surface); border-color: var(--line)">
-          <div
-            v-for="(w, i) in wallets"
-            :key="w.id"
-            class="flex items-center gap-3 px-3"
-            :style="{ minHeight: '60px', borderBottom: i < wallets.length - 1 ? '1px solid var(--line)' : 'none' }"
+  <div class="pb-10 px-5" style="background: var(--bg); color: var(--text); min-height: 100vh">
+    <div class="flex items-center gap-3.5 pt-5" style="min-height: 56px">
+      <span
+        class="rounded-full flex items-center justify-center shrink-0"
+        style="
+          width: 52px;
+          height: 52px;
+          background: var(--accent);
+          color: var(--on-accent);
+          font-size: 20px;
+          font-weight: 800;
+        "
+      >
+        {{ displayName.charAt(0).toUpperCase() }}
+      </span>
+      <div class="flex-1 min-w-0 flex flex-col gap-0.5">
+        <p class="text-lg font-extrabold truncate">{{ displayName }}</p>
+        <p class="text-xs font-semibold" :style="{ color: syncEnabled ? 'var(--money-in)' : 'var(--text-dim)' }">
+          <template v-if="syncEnabled"
+            >● {{ syncError ? 'Sync error' : syncing ? 'Syncing…' : lastSyncedLabel() }}</template
           >
-            <span
-              class="rounded-xl flex items-center justify-center shrink-0"
-              style="
-                width: 34px;
-                height: 34px;
-                background: var(--accent);
-                color: var(--on-accent);
-                font-size: 13px;
-                font-weight: 800;
-              "
-            >
-              {{ w.name.charAt(0).toUpperCase() }}
-            </span>
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium truncate">{{ w.name }}</p>
-              <p v-if="w.isDefault" class="text-xs" style="color: var(--text-dim)">Default</p>
-            </div>
-            <button
-              aria-label="Rename wallet"
-              class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
-              style="color: var(--text-dim)"
-              @click="openRenameWallet(w)"
-            >
-              ✎
-            </button>
-            <button
-              v-if="!w.isDefault"
-              aria-label="Delete wallet"
-              class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
-              style="color: var(--warn-text)"
-              @click="openDeleteWallet(w)"
-            >
-              ✕
-            </button>
+          <template v-else>Local only</template>
+        </p>
+      </div>
+      <span
+        class="rounded-full px-2.5 flex items-center shrink-0 text-xs font-bold border"
+        style="height: 26px; border-color: var(--line); color: var(--text-dim)"
+      >
+        Free
+      </span>
+    </div>
+
+    <button
+      type="button"
+      class="w-full flex items-center gap-3 rounded-2xl px-4 mt-5 text-left"
+      style="min-height: 64px; background: var(--accent); color: var(--on-accent)"
+      @click="emit('openPro')"
+    >
+      <div class="flex-1 min-w-0 flex flex-col gap-0.5 py-3">
+        <p class="text-sm font-extrabold">Upgrade to Reckon Pro</p>
+        <p class="text-xs font-semibold" style="color: var(--on-accent); opacity: 0.7">
+          Recurring entries, safe-to-spend, shared wallets
+        </p>
+      </div>
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        class="shrink-0"
+        aria-hidden="true"
+      >
+        <path d="m9 6 6 6-6 6" />
+      </svg>
+    </button>
+
+    <section class="flex flex-col gap-2 mt-6">
+      <div class="flex items-center justify-between">
+        <h2 class="text-xs font-bold" style="color: var(--text-dim); letter-spacing: 0.3px">Wallets</h2>
+        <button type="button" class="text-xs font-bold" style="color: var(--accent-text)" @click="openAddWallet">
+          + Add wallet
+        </button>
+      </div>
+      <div class="rounded-2xl border overflow-hidden" style="background: var(--surface); border-color: var(--line)">
+        <div
+          v-for="(w, i) in wallets"
+          :key="w.id"
+          class="flex items-center gap-3 px-3"
+          :style="{ minHeight: '60px', borderBottom: i < wallets.length - 1 ? '1px solid var(--line)' : 'none' }"
+        >
+          <span
+            class="rounded-xl flex items-center justify-center shrink-0"
+            style="
+              width: 34px;
+              height: 34px;
+              background: var(--accent);
+              color: var(--on-accent);
+              font-size: 13px;
+              font-weight: 800;
+            "
+          >
+            {{ w.name.charAt(0).toUpperCase() }}
+          </span>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold truncate">{{ w.name }}</p>
+            <p class="text-xs" style="color: var(--text-dim)">
+              <template v-if="w.isDefault">Default · </template>{{ format(balanceForWallet(w.id)) }}
+            </p>
           </div>
-        </div>
-      </section>
-
-      <section class="flex flex-col gap-2">
-        <h2 class="text-xs uppercase tracking-wide" style="color: var(--text-dim)">Currency</h2>
-        <div class="rounded-2xl border p-4" style="background: var(--surface); border-color: var(--line)">
-          <input
-            v-model="settings.currency"
-            type="text"
-            class="w-full rounded-lg px-3 py-2 text-base outline-none border"
-            style="background: var(--bg); border-color: var(--line); color: var(--text)"
-            @change="saveCurrency"
-          />
-          <p v-if="currencyError" class="text-xs mt-2" style="color: var(--warn-text)">{{ currencyError }}</p>
-        </div>
-      </section>
-
-      <section v-if="syncEnabled" class="flex flex-col gap-2">
-        <h2 class="text-xs uppercase tracking-wide" style="color: var(--text-dim)">Sync</h2>
-        <div class="rounded-2xl border p-4" style="background: var(--surface); border-color: var(--line)">
-          <p class="text-xs" style="color: var(--text-dim)">{{ userEmail }}</p>
-          <p class="text-xs mt-1" :style="{ color: syncError ? 'var(--warn-text)' : 'var(--text-dim)' }">
-            {{ syncError ? `Sync error: ${syncError}` : syncing ? 'Syncing…' : lastSyncedLabel() }}
-          </p>
-          <p v-if="pendingSyncCount" class="text-xs mt-1" style="color: var(--accent-text)">
-            {{ pendingSyncCount }} {{ pendingSyncCount === 1 ? 'entry' : 'entries' }} waiting to sync
-          </p>
-          <p v-if="queueError" class="text-xs mt-1" style="color: var(--warn-text)">{{ queueError }}</p>
-          <div class="flex gap-2 mt-3">
-            <button
-              :disabled="syncing"
-              class="flex-1 py-2 rounded-lg text-xs font-medium border disabled:opacity-50"
-              style="border-color: var(--line); color: var(--text)"
-              @click="syncNow"
-            >
-              Sync now
-            </button>
-            <button
-              class="flex-1 py-2 rounded-lg text-xs font-medium border"
-              style="border-color: var(--line); color: var(--warn-text)"
-              @click="signOut"
-            >
-              Sign out
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <section class="flex flex-col gap-2">
-        <h2 class="text-xs uppercase tracking-wide" style="color: var(--text-dim)">Backup</h2>
-        <div class="rounded-2xl border p-4" style="background: var(--surface); border-color: var(--line)">
-          <p class="text-xs mb-3" style="color: var(--text-dim)">
-            {{
-              syncEnabled
-                ? 'Your data syncs to your account, but a local export is still a good habit before switching devices.'
-                : 'Your data only lives on this device. Export it now and then so you never lose it.'
-            }}
-          </p>
           <button
-            class="w-full py-2 rounded-lg text-xs font-medium border"
-            style="border-color: var(--line); color: var(--text)"
-            @click="downloadCsv"
+            aria-label="Rename wallet"
+            class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+            style="color: var(--text-dim)"
+            @click="openRenameWallet(w)"
           >
-            Export backup (CSV)
+            ✎
           </button>
-
-          <details class="mt-3">
-            <summary class="text-xs cursor-pointer select-none" style="color: var(--text-dim)">Advanced</summary>
-            <div class="flex gap-2 mt-2">
-              <button
-                class="flex-1 py-2 rounded-lg text-xs font-medium border"
-                style="border-color: var(--line); color: var(--text)"
-                @click="downloadBackup"
-              >
-                Export JSON
-              </button>
-              <button
-                class="flex-1 py-2 rounded-lg text-xs font-medium border"
-                style="border-color: var(--line); color: var(--text)"
-                @click="triggerImport"
-              >
-                Import JSON
-              </button>
-            </div>
-          </details>
-          <input ref="importFile" type="file" accept="application/json" class="hidden" @change="handleImportFile" />
-          <p v-if="importMessage" class="text-xs mt-2" style="color: var(--accent-text)">{{ importMessage }}</p>
+          <button
+            v-if="!w.isDefault"
+            aria-label="Delete wallet"
+            class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+            style="color: var(--warn-text)"
+            @click="openDeleteWallet(w)"
+          >
+            ✕
+          </button>
         </div>
-      </section>
+      </div>
+    </section>
 
-      <section class="flex flex-col gap-2">
-        <h2 class="text-xs uppercase tracking-wide" style="color: var(--text-dim)">App</h2>
+    <section class="flex flex-col gap-2 mt-6">
+      <h2 class="text-xs font-bold" style="color: var(--text-dim); letter-spacing: 0.3px">Currency</h2>
+      <div class="rounded-2xl border p-4" style="background: var(--surface); border-color: var(--line)">
+        <input
+          v-model="settings.currency"
+          type="text"
+          class="w-full rounded-lg px-3 py-2 text-base outline-none border"
+          style="background: var(--bg); border-color: var(--line); color: var(--text)"
+          @change="saveCurrency"
+        />
+        <p v-if="currencyError" class="text-xs mt-2" style="color: var(--warn-text)">{{ currencyError }}</p>
+      </div>
+    </section>
+
+    <section class="flex flex-col gap-2 mt-6">
+      <h2 class="text-xs font-bold" style="color: var(--text-dim); letter-spacing: 0.3px">Money setup</h2>
+      <div class="rounded-2xl border overflow-hidden" style="background: var(--surface); border-color: var(--line)">
+        <div class="flex items-center gap-3 px-3.5" style="min-height: 52px; border-bottom: 1px solid var(--line)">
+          <span class="flex-1 text-sm font-semibold">Categories</span>
+          <span class="text-[13px]" style="color: var(--text-dim)">{{ categories.length }}</span>
+        </div>
         <button
           type="button"
-          class="w-full flex items-center justify-between rounded-2xl border px-4 py-3.5 text-sm font-medium text-left"
-          style="background: var(--surface); border-color: var(--line); color: var(--text)"
+          class="w-full flex items-center gap-3 px-3.5 text-left"
+          style="min-height: 52px"
+          @click="emit('openPeople')"
+        >
+          <span class="flex-1 text-sm font-semibold">People</span>
+          <span class="text-[13px]" style="color: var(--text-dim)">{{ people.length }}</span>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="var(--text-dim)"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="m9 6 6 6-6 6" />
+          </svg>
+        </button>
+      </div>
+    </section>
+
+    <section class="flex flex-col gap-2 mt-6">
+      <h2 class="text-xs font-bold" style="color: var(--text-dim); letter-spacing: 0.3px">App &amp; account</h2>
+      <div class="rounded-2xl border overflow-hidden" style="background: var(--surface); border-color: var(--line)">
+        <button
+          type="button"
+          class="w-full flex items-center gap-3 px-3.5 text-left"
+          style="min-height: 52px; border-bottom: 1px solid var(--line)"
           @click="emit('openAppearance')"
         >
-          Appearance
-          <span style="color: var(--text-dim)">›</span>
+          <span class="flex-1 text-sm font-semibold">Appearance</span>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="var(--text-dim)"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="m9 6 6 6-6 6" />
+          </svg>
         </button>
-      </section>
-    </div>
+
+        <button
+          type="button"
+          class="w-full flex items-center gap-3 px-3.5 text-left"
+          style="min-height: 52px; border-bottom: 1px solid var(--line)"
+          @click="downloadCsv"
+        >
+          <span class="flex-1 text-sm font-semibold">Export to CSV</span>
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="var(--text-dim)"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M12 4v11M7 10l5 5 5-5M5 20h14" />
+          </svg>
+        </button>
+
+        <button
+          v-if="syncEnabled"
+          type="button"
+          :disabled="syncing"
+          class="w-full flex items-center gap-3 px-3.5 text-left disabled:opacity-50"
+          style="min-height: 52px; border-bottom: 1px solid var(--line)"
+          @click="syncNow"
+        >
+          <span class="flex-1 text-sm font-semibold">Sync now</span>
+          <span v-if="pendingSyncCount" class="text-[13px]" style="color: var(--accent-text)">
+            {{ pendingSyncCount }} pending
+          </span>
+        </button>
+
+        <button
+          type="button"
+          class="w-full flex items-center gap-3 px-3.5 text-left"
+          style="min-height: 52px; color: var(--warn-text)"
+          @click="signOut"
+        >
+          <span class="flex-1 text-sm font-semibold">Sign out</span>
+        </button>
+      </div>
+
+      <p v-if="queueError" class="text-xs" style="color: var(--warn-text)">{{ queueError }}</p>
+
+      <details class="mt-1">
+        <summary class="text-xs cursor-pointer select-none" style="color: var(--text-dim)">Advanced backup</summary>
+        <div class="flex gap-2 mt-2">
+          <button
+            class="flex-1 py-2 rounded-lg text-xs font-medium border"
+            style="border-color: var(--line); color: var(--text)"
+            @click="downloadBackup"
+          >
+            Export JSON
+          </button>
+          <button
+            class="flex-1 py-2 rounded-lg text-xs font-medium border"
+            style="border-color: var(--line); color: var(--text)"
+            @click="triggerImport"
+          >
+            Import JSON
+          </button>
+        </div>
+      </details>
+      <input ref="importFile" type="file" accept="application/json" class="hidden" @change="handleImportFile" />
+      <p v-if="importMessage" class="text-xs" style="color: var(--accent-text)">{{ importMessage }}</p>
+    </section>
 
     <div v-if="pendingRename" class="fixed inset-0 z-50 flex items-center justify-center px-6">
       <div class="absolute inset-0 bg-black/60" @click="pendingRename = null" />
