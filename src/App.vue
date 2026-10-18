@@ -1,17 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import BalanceHero from './components/BalanceHero.vue'
-import SummaryCards from './components/SummaryCards.vue'
-import TrendChart from './components/TrendChart.vue'
-import TransactionFeed from './components/TransactionFeed.vue'
-import RecentActivity from './components/RecentActivity.vue'
+import HomeView from './components/HomeView.vue'
 import AddEntry from './components/AddEntry.vue'
-import WalletSwitcher from './components/WalletSwitcher.vue'
 import PeopleView from './components/PeopleView.vue'
 import AllActivityView from './components/AllActivityView.vue'
 import TrendsView from './components/TrendsView.vue'
 import TodosView from './components/TodosView.vue'
-import UpcomingTodos from './components/UpcomingTodos.vue'
 import MeView from './components/MeView.vue'
 import AppearanceView from './components/AppearanceView.vue'
 import BottomNav from './components/BottomNav.vue'
@@ -55,15 +49,15 @@ function openActivity(tab: 'list' | 'insights') {
 
     <template v-else>
       <div class="pb-28" style="background: var(--bg); color: var(--text); min-height: 100vh">
-        <template v-if="view === 'home'">
-          <WalletSwitcher />
-          <BalanceHero />
-          <SummaryCards @open-people="showPeople = true" />
-          <TrendChart @open-trends="openActivity('insights')" />
-          <TransactionFeed @edit="editingTransaction = $event" />
-          <UpcomingTodos @see-all="view = 'todos'" @log="todoPrefill = $event" />
-          <RecentActivity @see-all="openActivity('list')" @edit="editingTransaction = $event" />
-        </template>
+        <HomeView
+          v-if="view === 'home'"
+          @open-people="showPeople = true"
+          @open-insights="openActivity('insights')"
+          @open-activity-list="openActivity('list')"
+          @open-todos="view = 'todos'"
+          @edit="editingTransaction = $event"
+          @log-prefill="todoPrefill = $event"
+        />
 
         <template v-else-if="view === 'activity'">
           <header class="px-5 pt-5 pb-2">
