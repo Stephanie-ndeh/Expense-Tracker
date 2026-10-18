@@ -36,6 +36,7 @@ create table public.categories (
   user_id uuid not null references auth.users (id) on delete cascade,
   name text not null,
   kind text not null check (kind in ('expense', 'income')),
+  hidden boolean not null default false,
   created_at timestamptz not null default now()
 );
 create unique index categories_user_kind_name_unique on public.categories (user_id, kind, lower(name));
@@ -146,3 +147,33 @@ create trigger transactions_set_updated_at before update on public.transactions
   for each row execute function public.set_updated_at();
 create trigger todos_set_updated_at before update on public.todos
   for each row execute function public.set_updated_at();
+
+-- Atomically moves every transaction off the source category onto the target, then removes the source.
+-- A single function body is one implicit transaction, so a failure on either statement rolls back both —
+-- nothing can end up half-merged. Scoped to auth.uid() on both sides so a guessed id from another user's
+-- account can't be touched.
+create or replace function public.merge_categories(source_id text, target_id text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+begin
+  if source_id = target_id then
+    raise exception 'Cannot merge a category into itself';
+  end if;
+  if not exists (select 1 from categories where id = source_id and user_id = v_user_id) then
+    raise exception 'Source category not found';
+  end if;
+  if not exists (select 1 from categories where id = target_id and user_id = v_user_id) then
+    raise exception 'Target category not found';
+  end if;
+
+  update transactions set category_id = target_id where category_id = source_id and user_id = v_user_id;
+  delete from categories where id = source_id and user_id = v_user_id;
+end;
+$$;
+
+grant execute on function public.merge_categories(text, text) to authenticated;

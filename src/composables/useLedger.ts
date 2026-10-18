@@ -4,7 +4,7 @@ import { TYPE_META } from '../types/transaction'
 import type { Wallet } from '../types/wallet'
 import type { CategoryKind } from '../types/category'
 import { useWallets } from './useWallets'
-import { useCategories } from './useCategories'
+import { useCategories, DEFAULT_CATEGORY_NAMES } from './useCategories'
 import { usePeople } from './usePeople'
 import { supabase } from '../lib/supabaseClient'
 import { enqueueMutation, getQueuedMutations, removeQueuedMutation } from '../lib/offlineQueue'
@@ -112,19 +112,48 @@ const state = reactive({
 
 export function useLedger() {
   const { activeWalletId, wallets, importWallets } = useWallets()
-  const { categories } = useCategories()
+  const { categories, removeCategoryLocal } = useCategories()
   const { people } = usePeople()
 
-  /** Categories of the given kind, most-used-first (ties keep the categories table's order). */
-  function suggestedCategories(kind: CategoryKind) {
+  /** Quick-chip suggestions for Add entry: ranked by uses in the last 90 days, ties broken by most recently used.
+   *  Falls back to design/DESIGN.md's defaults (as name-only placeholders, not real rows) when there's no history yet.
+   *  Hidden categories never appear here — Add entry and the picker are the two places hidden ones disappear from. */
+  function suggestedCategories(kind: CategoryKind, limit = 6) {
+    const existing = categories.value.filter((c) => c.kind === kind && !c.hidden)
+    if (!existing.length) {
+      return DEFAULT_CATEGORY_NAMES[kind].slice(0, limit).map((name) => ({ id: name, name }))
+    }
+
+    const windowStart = new Date()
+    windowStart.setDate(windowStart.getDate() - 90)
+    const windowStartStr = windowStart.toISOString().slice(0, 10)
+
+    const stats = new Map<string, { count: number; lastUsed: number }>()
+    for (const t of state.transactions) {
+      if (!t.categoryId || t.type !== kind || t.date < windowStartStr) continue
+      const s = stats.get(t.categoryId) ?? { count: 0, lastUsed: 0 }
+      s.count += 1
+      if (t.createdAt > s.lastUsed) s.lastUsed = t.createdAt
+      stats.set(t.categoryId, s)
+    }
+
+    return existing
+      .slice()
+      .sort((a, b) => {
+        const sa = stats.get(a.id) ?? { count: 0, lastUsed: 0 }
+        const sb = stats.get(b.id) ?? { count: 0, lastUsed: 0 }
+        return sb.count - sa.count || sb.lastUsed - sa.lastUsed
+      })
+      .slice(0, limit)
+  }
+
+  /** All-time entry counts per category of a kind — for CategoryPicker.vue's list, not the 90-day ranking above. */
+  function categoryUsageCounts(kind: CategoryKind) {
     const counts = new Map<string, number>()
     for (const t of state.transactions) {
       if (t.categoryId && t.type === kind) counts.set(t.categoryId, (counts.get(t.categoryId) ?? 0) + 1)
     }
-    return categories.value
-      .filter((c) => c.kind === kind)
-      .slice()
-      .sort((a, b) => (counts.get(b.id) ?? 0) - (counts.get(a.id) ?? 0))
+    return counts
   }
 
   /** People used in lend/repay/borrow/payback entries, most-used-first (ties keep the people table's order). */
@@ -169,6 +198,16 @@ export function useLedger() {
       settled.value.filter((t) => TYPE_META[t.type].group === 'transfer').reduce((sum, t) => sum + signedAmount(t), 0) +
       settled.value.filter((t) => TYPE_META[t.type].group === 'debt').reduce((sum, t) => sum + signedAmount(t), 0),
   )
+
+  /** Same formula as `balance`, but scoped to an arbitrary wallet instead of the shared activeWalletId — for display contexts (e.g. the Me screen's wallet list) that need more than one wallet's figure at once. */
+  function balanceForWallet(walletId: string) {
+    const settledForWallet = state.transactions.filter(
+      (t) => t.walletId === walletId && !t.planned && t.date <= today(),
+    )
+    const sumGroup = (group: (typeof TYPE_META)[TransactionType]['group']) =>
+      settledForWallet.filter((t) => TYPE_META[t.type].group === group).reduce((sum, t) => sum + signedAmount(t), 0)
+    return sumGroup('cash') - sumGroup('savings') + sumGroup('lending') + sumGroup('transfer') + sumGroup('debt')
+  }
 
   const savings = computed(() =>
     settled.value.filter((t) => TYPE_META[t.type].group === 'savings').reduce((sum, t) => sum + signedAmount(t), 0),
@@ -409,6 +448,41 @@ export function useLedger() {
     }
   }
 
+  /** Moves every transaction off source onto target via the merge_categories RPC (one atomic DB transaction —
+   *  see supabase/migrations/014_categories_manage.sql), then patches local state to match. */
+  async function mergeCategories(sourceId: string, targetId: string) {
+    if (!supabase) throw new Error('Supabase is not configured')
+    const { error } = await supabase.rpc('merge_categories', { source_id: sourceId, target_id: targetId })
+    if (error) throw error
+
+    for (const t of state.transactions) {
+      if (t.categoryId === sourceId) t.categoryId = targetId
+    }
+    removeCategoryLocal(sourceId)
+  }
+
+  /** Tidy-up "Review": bulk-converts expense entries under the given (debt-like-named) categories into
+   *  payback entries. There's no real person to attach, so personId stays null and the label is left as-is
+   *  (it's already whatever the category's name was) — a single UPDATE is already atomic as one statement. */
+  async function convertCategoryEntriesToPayback(categoryIds: string[]) {
+    if (!categoryIds.length) return
+    if (!supabase) throw new Error('Supabase is not configured')
+    const { error } = await supabase
+      .from('transactions')
+      .update({ type: 'payback', category_id: null })
+      .in('category_id', categoryIds)
+      .eq('type', 'expense')
+    if (error) throw error
+
+    const idSet = new Set(categoryIds)
+    for (const t of state.transactions) {
+      if (t.type === 'expense' && t.categoryId && idSet.has(t.categoryId)) {
+        t.type = 'payback'
+        t.categoryId = null
+      }
+    }
+  }
+
   // --- Per-person lending/debt view ---
   const personSummaries = computed(() => {
     const byPerson = new Map<string, Transaction[]>()
@@ -464,7 +538,7 @@ export function useLedger() {
   const pastTransactions = computed(() => transactions.value.filter((t) => !t.planned && t.date <= today()))
 
   // --- Recent activity: top few for home, full history for the dedicated view ---
-  const recentActivity = computed(() => pastTransactions.value.slice(0, 5))
+  const recentActivity = computed(() => pastTransactions.value.slice(0, 4))
 
   interface ActivityFilters {
     query: string
@@ -510,20 +584,20 @@ export function useLedger() {
     return d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
   }
 
-  const monthComparison = computed(() => {
-    const curKey = monthKey(0)
-    const prevKey = monthKey(-1)
+  function monthComparison(offset = 0) {
+    const curKey = monthKey(offset)
+    const prevKey = monthKey(offset - 1)
     const sumFor = (key: string, type: TransactionType) =>
       settled.value.filter((t) => t.type === type && t.date.slice(0, 7) === key).reduce((s, t) => s + t.amount, 0)
     return {
-      currentLabel: monthName(0),
-      previousLabel: monthName(-1),
+      currentLabel: monthName(offset),
+      previousLabel: monthName(offset - 1),
       expense: { current: sumFor(curKey, 'expense'), previous: sumFor(prevKey, 'expense') },
       income: { current: sumFor(curKey, 'income'), previous: sumFor(prevKey, 'income') },
       lent: { current: sumFor(curKey, 'lend'), previous: sumFor(prevKey, 'lend') },
       saved: { current: sumFor(curKey, 'save'), previous: sumFor(prevKey, 'save') },
     }
-  })
+  }
 
   function categoryBreakdown(offset = 0) {
     const key = monthKey(offset)
@@ -538,9 +612,9 @@ export function useLedger() {
       .sort((a, b) => b.amount - a.amount)
   }
 
-  const categoryComparison = computed(() => {
-    const cur = categoryBreakdown(0)
-    const prev = categoryBreakdown(-1)
+  function categoryComparison(offset = 0) {
+    const cur = categoryBreakdown(offset)
+    const prev = categoryBreakdown(offset - 1)
     const prevMap = new Map(prev.map((c) => [c.label, c.amount]))
     const seen = new Set<string>()
     const rows = cur.map((c) => {
@@ -551,7 +625,7 @@ export function useLedger() {
       if (!seen.has(p.label)) rows.push({ label: p.label, current: 0, previous: p.amount })
     }
     return rows.sort((a, b) => b.current - a.current)
-  })
+  }
 
   function exportData() {
     return JSON.stringify(
@@ -676,6 +750,7 @@ export function useLedger() {
     transactions,
     upcoming,
     balance,
+    balanceForWallet,
     savings,
     owedToYou,
     totalOwedToYou,
@@ -691,8 +766,11 @@ export function useLedger() {
     addTransfer,
     updateTransfer,
     transferSibling,
+    mergeCategories,
+    convertCategoryEntriesToPayback,
     markSettled,
     suggestedCategories,
+    categoryUsageCounts,
     suggestedPeople,
     personSummaries,
     monthlyTrend,

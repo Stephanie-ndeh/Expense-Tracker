@@ -53,7 +53,7 @@ function handleDelete() {
       <button
         type="button"
         class="flex-1 flex items-center justify-center text-xs font-medium"
-        style="background: var(--accent); color: var(--ink)"
+        style="background: var(--accent); color: var(--on-accent)"
         @click="handleEdit"
       >
         Edit
@@ -63,7 +63,7 @@ function handleDelete() {
       <button
         type="button"
         class="flex-1 flex items-center justify-center text-xs font-medium"
-        style="background: var(--money-out); color: var(--ink)"
+        style="background: var(--money-out); color: var(--bg)"
         @click="handleDelete"
       >
         Delete
@@ -75,7 +75,7 @@ function handleDelete() {
       :style="{
         transform: `translateX(${offset}px)`,
         transition: dragging ? 'none' : 'transform 150ms ease',
-        background: 'var(--ink)',
+        background: 'var(--bg)',
         touchAction: 'pan-y',
       }"
       @pointerdown="onPointerDown"

@@ -6,10 +6,30 @@ export type CategoryRow = {
   id: string
   name: string
   kind: CategoryKind
+  hidden: boolean
 }
 
 export function rowToCategory(r: CategoryRow): Category {
-  return { id: r.id, name: r.name, kind: r.kind }
+  return { id: r.id, name: r.name, kind: r.kind, hidden: r.hidden }
+}
+
+/** design/DESIGN.md's named defaults, seeded once for a genuinely new account (see seedDefaultCategories). */
+export const DEFAULT_CATEGORY_NAMES: Record<CategoryKind, string[]> = {
+  expense: [
+    'Food',
+    'Transport',
+    'Bills',
+    'Airtime/Data',
+    'Shopping',
+    'Health',
+    'Personal care',
+    'Household',
+    'Fitness',
+    'Family',
+    'Church/Giving',
+    'Other',
+  ],
+  income: ['Salary', 'Business', 'Gift', 'Other'],
 }
 
 const state = reactive({
@@ -46,12 +66,13 @@ export function useCategories() {
     const userId = await getUserId()
     if (!userId) throw new Error('Not signed in')
 
-    const category: Category = { id: crypto.randomUUID(), name: trimmed, kind }
+    const category: Category = { id: crypto.randomUUID(), name: trimmed, kind, hidden: false }
     const { error } = await supabase.from('categories').insert({
       id: category.id,
       user_id: userId,
       name: category.name,
       kind: category.kind,
+      hidden: false,
     })
     if (error) {
       if (error.code === '23505') {
@@ -73,6 +94,61 @@ export function useCategories() {
     return category
   }
 
+  async function renameCategory(id: string, name: string) {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    const current = state.categories.find((c) => c.id === id)
+    if (!current) return
+    if (
+      state.categories.some(
+        (c) => c.id !== id && c.kind === current.kind && c.name.toLowerCase() === trimmed.toLowerCase(),
+      )
+    ) {
+      throw new Error(`A category named "${trimmed}" already exists.`)
+    }
+    if (!supabase) throw new Error('Supabase is not configured')
+
+    const { error } = await supabase.from('categories').update({ name: trimmed }).eq('id', id)
+    if (error) {
+      throw error.code === '23505' ? new Error(`A category named "${trimmed}" already exists.`) : error
+    }
+    current.name = trimmed
+  }
+
+  async function setCategoryHidden(id: string, hidden: boolean) {
+    if (!supabase) throw new Error('Supabase is not configured')
+    const { error } = await supabase.from('categories').update({ hidden }).eq('id', id)
+    if (error) throw error
+    const current = state.categories.find((c) => c.id === id)
+    if (current) current.hidden = hidden
+  }
+
+  /** Local-only removal — used after merge_categories() has already deleted the row server-side. */
+  function removeCategoryLocal(id: string) {
+    const idx = state.categories.findIndex((c) => c.id === id)
+    if (idx !== -1) state.categories.splice(idx, 1)
+  }
+
+  /** Called once by useSync.ts right after a genuinely new sign-in (see useSettings.ts's loadProfile). */
+  async function seedDefaultCategories() {
+    if (!supabase) return
+    const userId = await getUserId()
+    if (!userId) return
+
+    const rows = (['expense', 'income'] as const).flatMap((kind) =>
+      DEFAULT_CATEGORY_NAMES[kind].map((name) => ({
+        id: crypto.randomUUID(),
+        user_id: userId,
+        name,
+        kind,
+        hidden: false,
+      })),
+    )
+    const { error } = await supabase.from('categories').insert(rows)
+    if (error) throw error
+    state.categories.push(...rows.map((r) => ({ id: r.id, name: r.name, kind: r.kind, hidden: false })))
+  }
+
   /** Authoritative overwrite from Supabase — the server is the only source of truth, so no merge. */
   function replaceCategories(items: Category[]) {
     state.categories = items
@@ -85,6 +161,10 @@ export function useCategories() {
   return {
     categories,
     findOrCreateCategory,
+    renameCategory,
+    setCategoryHidden,
+    removeCategoryLocal,
+    seedDefaultCategories,
     replaceCategories,
     clearCategories,
   }

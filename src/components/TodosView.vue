@@ -1,24 +1,84 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
-import { useTodos } from '../composables/useTodos'
+import { useTodos, todayStr, weekEndStr } from '../composables/useTodos'
 import { useSettings } from '../composables/useSettings'
 import { useWallets } from '../composables/useWallets'
-import { TYPE_META } from '../types/transaction'
+import { useLedger } from '../composables/useLedger'
 import type { TransactionType } from '../types/transaction'
 import type { Todo } from '../types/todo'
 
 const emit = defineEmits<{
-  back: []
   log: [prefill: { type?: TransactionType; amount?: number; label?: string; walletId?: string }]
 }>()
 const { todos, addTodo, setDone, removeTodo } = useTodos()
 const { format } = useSettings()
 const { wallets } = useWallets()
+const { balance } = useLedger()
 
-const pending = computed(() =>
-  todos.value.filter((t) => !t.done).sort((a, b) => ((a.dueDate ?? '9999') < (b.dueDate ?? '9999') ? -1 : 1)),
-)
+const pendingTodos = computed(() => todos.value.filter((t) => !t.done))
 const completed = computed(() => todos.value.filter((t) => t.done))
+
+const overdue = computed(() =>
+  pendingTodos.value
+    .filter((t) => t.dueDate && t.dueDate < todayStr())
+    .sort((a, b) => (a.dueDate! < b.dueDate! ? -1 : 1)),
+)
+const thisWeek = computed(() =>
+  pendingTodos.value
+    .filter((t) => t.dueDate && t.dueDate >= todayStr() && t.dueDate <= weekEndStr())
+    .sort((a, b) => (a.dueDate! < b.dueDate! ? -1 : 1)),
+)
+const later = computed(() =>
+  pendingTodos.value
+    .filter((t) => !t.dueDate || t.dueDate > weekEndStr())
+    .sort((a, b) => ((a.dueDate ?? '9999') < (b.dueDate ?? '9999') ? -1 : 1)),
+)
+
+const dueThisWeekAmount = computed(() => [...overdue.value, ...thisWeek.value].reduce((s, t) => s + (t.amount ?? 0), 0))
+const balanceAfter = computed(() => balance.value - dueThisWeekAmount.value)
+
+const filter = ref<'all' | 'money' | 'done'>('all')
+const allCount = computed(() => pendingTodos.value.length)
+const moneyCount = computed(() => pendingTodos.value.filter((t) => t.amount != null).length)
+
+function applyMoneyFilter(list: Todo[]) {
+  return filter.value === 'money' ? list.filter((t) => t.amount != null) : list
+}
+const overdueShown = computed(() => applyMoneyFilter(overdue.value))
+const thisWeekShown = computed(() => applyMoneyFilter(thisWeek.value))
+const laterShown = computed(() => applyMoneyFilter(later.value))
+
+function walletName(id: string | null) {
+  if (!id) return ''
+  return wallets.value.find((w) => w.id === id)?.name ?? ''
+}
+
+function formatRelative(date: string) {
+  const d = new Date(date + 'T00:00:00')
+  const now = new Date()
+  const diffDays = Math.round((d.getTime() - new Date(now.toDateString()).getTime()) / 86400000)
+  if (Math.abs(diffDays) <= 6) return d.toLocaleDateString(undefined, { weekday: 'long' })
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+function subtitle(t: Todo, overdueItem: boolean) {
+  const parts: string[] = []
+  if (t.dueDate) parts.push(overdueItem ? `Was due ${formatRelative(t.dueDate)}` : formatRelative(t.dueDate))
+  if (t.amount != null) parts.push(format(t.amount))
+  if (t.walletId) parts.push(walletName(t.walletId))
+  return parts.join(' · ')
+}
+
+function laterSubtitle(t: Todo) {
+  const parts: string[] = []
+  if (t.dueDate) {
+    const d = new Date(t.dueDate + 'T00:00:00')
+    parts.push(`Due ${d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`)
+  }
+  if (t.amount != null) parts.push(format(t.amount))
+  if (t.walletId) parts.push(walletName(t.walletId))
+  return parts.join(' · ')
+}
 
 const types: { value: TransactionType; label: string }[] = [
   { value: 'expense', label: 'Spent' },
@@ -108,114 +168,287 @@ async function confirmDelete() {
     deleteError.value = e instanceof Error ? e.message : 'Could not delete this to-do.'
   }
 }
-
-function walletName(id: string | null) {
-  if (!id) return ''
-  return wallets.value.find((w) => w.id === id)?.name ?? ''
-}
 </script>
 
 <template>
-  <div class="min-h-screen pb-28" style="background: var(--ink); color: var(--paper)">
-    <header class="flex items-center gap-3 px-5 pt-5 pb-2">
-      <button aria-label="Back" class="text-lg leading-none" style="color: var(--paper-dim)" @click="emit('back')">
-        ‹
+  <div class="pb-10 px-5">
+    <header class="flex items-center justify-between pt-5 pb-3" style="min-height: 44px">
+      <h1 class="text-[26px] font-extrabold tracking-tight">To-dos</h1>
+      <button
+        type="button"
+        class="flex items-center gap-1.5 rounded-full px-3.5 text-sm font-bold"
+        style="height: 40px; background: var(--text); color: var(--bg)"
+        @click="openAdd"
+      >
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.4"
+          stroke-linecap="round"
+          aria-hidden="true"
+        >
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+        New
       </button>
-      <h1 class="text-sm font-semibold">Money to-do list</h1>
     </header>
 
-    <div class="px-5 pt-2">
-      <p v-if="toggleError" class="text-xs mb-2" style="color: var(--money-out)">{{ toggleError }}</p>
+    <p v-if="toggleError" class="text-xs mb-2" style="color: var(--warn-text)">{{ toggleError }}</p>
 
-      <p v-if="!pending.length && !completed.length" class="text-sm py-6 text-center" style="color: var(--paper-dim)">
-        Nothing on your list yet.
-      </p>
+    <p v-if="!todos.length" class="text-sm py-6 text-center" style="color: var(--text-dim)">
+      Nothing on your list yet.
+    </p>
 
+    <template v-else>
       <div
-        v-for="t in pending"
-        :key="t.id"
-        class="flex items-center justify-between py-2.5 border-b"
-        style="border-color: var(--ink-line)"
+        class="rounded-2xl border p-3.5 flex items-center justify-between"
+        style="background: var(--surface); border-color: var(--line)"
       >
-        <label class="flex items-center gap-3 min-w-0">
-          <input
-            type="checkbox"
-            :checked="t.done"
-            :disabled="busyId === t.id"
-            class="accent-[color:var(--accent)] shrink-0"
-            @change="toggle(t)"
-          />
-          <span class="min-w-0">
-            <p class="text-sm truncate">{{ t.title }}</p>
-            <p class="text-xs" style="color: var(--paper-dim)">
-              <template v-if="t.amount != null"
-                >{{ format(t.amount) }}<template v-if="t.type"> · {{ TYPE_META[t.type].verb }}</template></template
-              >
-              <template v-if="t.dueDate"> · Due {{ t.dueDate }}</template>
-              <template v-if="t.walletId"> · {{ walletName(t.walletId) }}</template>
-            </p>
+        <div class="flex flex-col gap-1">
+          <p class="text-xs font-semibold" style="color: var(--text-dim)">Money due this week</p>
+          <p class="text-[22px] font-extrabold tracking-tight">{{ format(dueThisWeekAmount) }}</p>
+        </div>
+        <div class="text-right text-xs leading-relaxed" style="color: var(--text-dim)">
+          After that you'd have<br />
+          <span class="text-sm font-bold" :style="{ color: balanceAfter < 0 ? 'var(--money-out)' : 'var(--text)' }">
+            {{ format(balanceAfter) }}
           </span>
-        </label>
-        <button class="text-xs shrink-0 pl-3" style="color: var(--paper-dim)" @click="pendingDelete = t">✕</button>
+        </div>
       </div>
 
-      <template v-if="completed.length">
-        <h3 class="text-xs uppercase tracking-wide mt-5 mb-1" style="color: var(--paper-dim)">Done</h3>
+      <div class="flex gap-2 pt-4">
+        <button
+          type="button"
+          class="rounded-full px-3.5 text-[13px]"
+          style="height: 34px"
+          :style="
+            filter === 'all'
+              ? { background: 'var(--text)', color: 'var(--bg)', fontWeight: 700 }
+              : { border: '1px solid var(--line)', color: 'var(--text-dim)', fontWeight: 600 }
+          "
+          @click="filter = 'all'"
+        >
+          All · {{ allCount }}
+        </button>
+        <button
+          type="button"
+          class="rounded-full px-3.5 text-[13px]"
+          style="height: 34px"
+          :style="
+            filter === 'money'
+              ? { background: 'var(--text)', color: 'var(--bg)', fontWeight: 700 }
+              : { border: '1px solid var(--line)', color: 'var(--text-dim)', fontWeight: 600 }
+          "
+          @click="filter = 'money'"
+        >
+          With money · {{ moneyCount }}
+        </button>
+        <button
+          type="button"
+          class="rounded-full px-3.5 text-[13px]"
+          style="height: 34px"
+          :style="
+            filter === 'done'
+              ? { background: 'var(--text)', color: 'var(--bg)', fontWeight: 700 }
+              : { border: '1px solid var(--line)', color: 'var(--text-dim)', fontWeight: 600 }
+          "
+          @click="filter = 'done'"
+        >
+          Done
+        </button>
+      </div>
+
+      <template v-if="filter !== 'done'">
+        <template v-if="overdueShown.length">
+          <p class="text-xs font-bold py-1" style="color: var(--warn-text); letter-spacing: 0.3px">Overdue</p>
+          <div
+            v-for="t in overdueShown"
+            :key="t.id"
+            class="flex items-center gap-3 border-t"
+            style="min-height: 64px; border-color: var(--line)"
+          >
+            <button
+              type="button"
+              aria-label="Mark done"
+              :disabled="busyId === t.id"
+              class="rounded-lg border-[1.5px] shrink-0 disabled:opacity-50"
+              style="width: 26px; height: 26px; border-color: var(--money-out)"
+              @click="toggle(t)"
+            />
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold truncate">{{ t.title }}</p>
+              <p class="text-xs" style="color: var(--warn-text)">{{ subtitle(t, true) }}</p>
+            </div>
+            <button
+              v-if="t.amount != null"
+              type="button"
+              class="rounded-full px-3 text-xs font-bold shrink-0"
+              style="
+                height: 32px;
+                background: var(--accent-surface);
+                border: 1px solid var(--accent-surface-line);
+                color: var(--accent-text);
+              "
+              @click="toggle(t)"
+            >
+              Log it
+            </button>
+            <button class="text-xs shrink-0" style="color: var(--text-dim)" @click="pendingDelete = t">✕</button>
+          </div>
+        </template>
+
+        <template v-if="thisWeekShown.length">
+          <p class="text-xs font-bold pt-3 py-1" style="color: var(--text-dim); letter-spacing: 0.3px">This week</p>
+          <div
+            v-for="t in thisWeekShown"
+            :key="t.id"
+            class="flex items-center gap-3 border-t"
+            style="min-height: 64px; border-color: var(--line)"
+          >
+            <button
+              type="button"
+              aria-label="Mark done"
+              :disabled="busyId === t.id"
+              class="rounded-lg border-[1.5px] shrink-0 disabled:opacity-50"
+              style="width: 26px; height: 26px; border-color: var(--text-dim)"
+              @click="toggle(t)"
+            />
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold truncate">{{ t.title }}</p>
+              <p class="text-xs" style="color: var(--text-dim)">{{ subtitle(t, false) }}</p>
+            </div>
+            <button
+              v-if="t.amount != null"
+              type="button"
+              class="rounded-full px-3 text-xs font-bold shrink-0"
+              style="
+                height: 32px;
+                background: var(--accent-surface);
+                border: 1px solid var(--accent-surface-line);
+                color: var(--accent-text);
+              "
+              @click="toggle(t)"
+            >
+              Log it
+            </button>
+            <button class="text-xs shrink-0" style="color: var(--text-dim)" @click="pendingDelete = t">✕</button>
+          </div>
+        </template>
+
+        <template v-if="laterShown.length">
+          <p class="text-xs font-bold pt-3 py-1" style="color: var(--text-dim); letter-spacing: 0.3px">Later</p>
+          <div
+            v-for="t in laterShown"
+            :key="t.id"
+            class="flex items-center gap-3 border-t"
+            style="min-height: 64px; border-color: var(--line)"
+          >
+            <button
+              type="button"
+              aria-label="Mark done"
+              :disabled="busyId === t.id"
+              class="rounded-lg border-[1.5px] shrink-0 disabled:opacity-50"
+              style="width: 26px; height: 26px; border-color: var(--text-dim)"
+              @click="toggle(t)"
+            />
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold truncate">{{ t.title }}</p>
+              <p class="text-xs" style="color: var(--text-dim)">{{ laterSubtitle(t) }}</p>
+            </div>
+            <button
+              v-if="t.amount != null"
+              type="button"
+              class="rounded-full px-3 text-xs font-bold shrink-0"
+              style="
+                height: 32px;
+                background: var(--accent-surface);
+                border: 1px solid var(--accent-surface-line);
+                color: var(--accent-text);
+              "
+              @click="toggle(t)"
+            >
+              Log it
+            </button>
+            <button class="text-xs shrink-0" style="color: var(--text-dim)" @click="pendingDelete = t">✕</button>
+          </div>
+        </template>
+
+        <p
+          v-if="!overdueShown.length && !thisWeekShown.length && !laterShown.length"
+          class="text-sm py-6 text-center"
+          style="color: var(--text-dim)"
+        >
+          Nothing here.
+        </p>
+      </template>
+
+      <template v-else>
+        <p v-if="!completed.length" class="text-sm py-6 text-center" style="color: var(--text-dim)">
+          Nothing done yet.
+        </p>
         <div
           v-for="t in completed"
           :key="t.id"
-          class="flex items-center justify-between py-2.5 border-b"
-          style="border-color: var(--ink-line)"
+          class="flex items-center gap-3 border-t"
+          style="min-height: 64px; border-color: var(--line)"
         >
-          <label class="flex items-center gap-3 min-w-0">
-            <input
-              type="checkbox"
-              :checked="t.done"
-              :disabled="busyId === t.id"
-              class="accent-[color:var(--accent)] shrink-0"
-              @change="toggle(t)"
-            />
-            <span class="text-sm truncate line-through" style="color: var(--paper-dim)">{{ t.title }}</span>
-          </label>
-          <button class="text-xs shrink-0 pl-3" style="color: var(--paper-dim)" @click="pendingDelete = t">✕</button>
+          <button
+            type="button"
+            aria-label="Mark not done"
+            :disabled="busyId === t.id"
+            class="rounded-lg shrink-0 flex items-center justify-center disabled:opacity-50"
+            style="width: 26px; height: 26px; background: var(--accent); color: var(--on-accent)"
+            @click="toggle(t)"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.6"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M5 13l4 4L19 7" />
+            </svg>
+          </button>
+          <p class="flex-1 text-sm truncate line-through" style="color: var(--text-dim)">{{ t.title }}</p>
+          <button class="text-xs shrink-0" style="color: var(--text-dim)" @click="pendingDelete = t">✕</button>
         </div>
       </template>
-    </div>
-
-    <button
-      class="fixed bottom-6 left-1/2 -translate-x-1/2 px-6 py-3.5 rounded-full font-medium text-sm shadow-lg"
-      style="background: var(--accent); color: var(--ink)"
-      @click="openAdd"
-    >
-      + Add to-do
-    </button>
+    </template>
 
     <div v-if="showAdd" class="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center">
       <div class="absolute inset-0 bg-black/60" @click="showAdd = false" />
       <form
         class="relative w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl p-5 pb-8 sm:pb-5 max-h-[90vh] overflow-y-auto"
-        style="background: var(--ink-raised)"
+        style="background: var(--surface)"
         @submit.prevent="confirmAdd"
       >
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-base font-semibold">New to-do</h2>
-          <button type="button" class="text-sm" style="color: var(--paper-dim)" @click="showAdd = false">Cancel</button>
+          <button type="button" class="text-sm" style="color: var(--text-dim)" @click="showAdd = false">Cancel</button>
         </div>
 
         <label class="block mb-4">
-          <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Title</span>
+          <span class="text-xs uppercase tracking-wide" style="color: var(--text-dim)">Title</span>
           <input
             v-model="form.title"
             type="text"
             required
             autofocus
             class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
-            style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+            style="background: var(--bg); border-color: var(--line); color: var(--text)"
           />
         </label>
 
         <label class="block mb-4">
-          <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Amount (optional)</span>
+          <span class="text-xs uppercase tracking-wide" style="color: var(--text-dim)">Amount (optional)</span>
           <input
             v-model="form.amount"
             type="number"
@@ -224,16 +457,16 @@ function walletName(id: string | null) {
             step="any"
             placeholder="0"
             class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
-            style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+            style="background: var(--bg); border-color: var(--line); color: var(--text)"
           />
         </label>
 
         <label class="block mb-4">
-          <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Type (optional)</span>
+          <span class="text-xs uppercase tracking-wide" style="color: var(--text-dim)">Type (optional)</span>
           <select
             v-model="form.type"
             class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
-            style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+            style="background: var(--bg); border-color: var(--line); color: var(--text)"
           >
             <option value="">None</option>
             <option v-for="t in types" :key="t.value" :value="t.value">{{ t.label }}</option>
@@ -241,11 +474,11 @@ function walletName(id: string | null) {
         </label>
 
         <label v-if="wallets.length > 1" class="block mb-4">
-          <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Wallet (optional)</span>
+          <span class="text-xs uppercase tracking-wide" style="color: var(--text-dim)">Wallet (optional)</span>
           <select
             v-model="form.walletId"
             class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
-            style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+            style="background: var(--bg); border-color: var(--line); color: var(--text)"
           >
             <option value="">None</option>
             <option v-for="w in wallets" :key="w.id" :value="w.id">{{ w.name }}</option>
@@ -253,22 +486,22 @@ function walletName(id: string | null) {
         </label>
 
         <label class="block mb-4">
-          <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Due date (optional)</span>
+          <span class="text-xs uppercase tracking-wide" style="color: var(--text-dim)">Due date (optional)</span>
           <input
             v-model="form.dueDate"
             type="date"
             class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
-            style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+            style="background: var(--bg); border-color: var(--line); color: var(--text)"
           />
         </label>
 
-        <p v-if="addError" class="text-xs mb-3" style="color: var(--money-out)">{{ addError }}</p>
+        <p v-if="addError" class="text-xs mb-3" style="color: var(--warn-text)">{{ addError }}</p>
 
         <button
           type="submit"
           :disabled="adding"
           class="w-full py-3 rounded-xl font-medium text-sm disabled:opacity-50"
-          style="background: var(--accent); color: var(--ink)"
+          style="background: var(--accent); color: var(--on-accent)"
         >
           {{ adding ? 'Saving…' : 'Add to-do' }}
         </button>
@@ -277,21 +510,21 @@ function walletName(id: string | null) {
 
     <div v-if="pendingDelete" class="fixed inset-0 z-50 flex items-center justify-center px-6">
       <div class="absolute inset-0 bg-black/60" @click="pendingDelete = null" />
-      <div class="relative w-full max-w-xs rounded-2xl p-5" style="background: var(--ink-raised)">
+      <div class="relative w-full max-w-xs rounded-2xl p-5" style="background: var(--surface)">
         <h2 class="text-sm font-semibold mb-1">Delete "{{ pendingDelete.title }}"?</h2>
-        <p class="text-sm mb-4" style="color: var(--paper-dim)">This can't be undone.</p>
-        <p v-if="deleteError" class="text-xs mb-3" style="color: var(--money-out)">{{ deleteError }}</p>
+        <p class="text-sm mb-4" style="color: var(--text-dim)">This can't be undone.</p>
+        <p v-if="deleteError" class="text-xs mb-3" style="color: var(--warn-text)">{{ deleteError }}</p>
         <div class="flex gap-2">
           <button
             class="flex-1 py-2.5 rounded-xl text-sm font-medium border"
-            style="border-color: var(--ink-line); color: var(--paper)"
+            style="border-color: var(--line); color: var(--text)"
             @click="pendingDelete = null"
           >
             Cancel
           </button>
           <button
             class="flex-1 py-2.5 rounded-xl text-sm font-medium"
-            style="background: var(--money-out); color: var(--ink)"
+            style="background: var(--money-out); color: var(--bg)"
             @click="confirmDelete"
           >
             Delete

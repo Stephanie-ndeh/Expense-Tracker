@@ -7,6 +7,7 @@ import { useSettings } from '../composables/useSettings'
 import { useWallets } from '../composables/useWallets'
 import { useCategories } from '../composables/useCategories'
 import { usePeople } from '../composables/usePeople'
+import CategoryPicker from './CategoryPicker.vue'
 
 type UiType = TransactionType | 'transfer'
 
@@ -61,16 +62,19 @@ const form = reactive({
   toWalletId: editingInLeg?.walletId ?? defaultToWalletId,
 })
 
-const types: { value: UiType; short: string }[] = [
-  { value: 'expense', short: 'Spent' },
-  { value: 'income', short: 'Received' },
-  { value: 'lend', short: 'Lent out' },
-  { value: 'repay', short: 'Paid back' },
-  { value: 'save', short: 'Saved' },
-  { value: 'withdraw', short: 'From savings' },
-  { value: 'transfer', short: 'Transfer' },
-  { value: 'borrow', short: 'Borrowed' },
-  { value: 'payback', short: 'Repaid' },
+const mainTypes: { value: UiType; label: string }[] = [
+  { value: 'expense', label: 'Spent' },
+  { value: 'income', label: 'Received' },
+  { value: 'transfer', label: 'Transfer' },
+]
+
+const moreTypes: { value: UiType; label: string }[] = [
+  { value: 'lend', label: 'Lent' },
+  { value: 'borrow', label: 'Borrowed' },
+  { value: 'repay', label: 'Got paid back' },
+  { value: 'payback', label: 'I paid back' },
+  { value: 'save', label: 'To savings' },
+  { value: 'withdraw', label: 'From savings' },
 ]
 
 function canSelectType(value: UiType) {
@@ -80,11 +84,48 @@ function canSelectType(value: UiType) {
   return value !== 'transfer'
 }
 
-const categorySuggestions = computed(() =>
-  form.type === 'expense' || form.type === 'income' ? suggestedCategories(form.type) : [],
-)
+const isCategoryType = (t: UiType): t is 'expense' | 'income' => t === 'expense' || t === 'income'
 const isPersonType = (t: UiType) => t === 'lend' || t === 'repay' || t === 'borrow' || t === 'payback'
+
+// Always include the current label as a chip even if it's not in the top-6 ranking (e.g. editing an older entry),
+// so the existing selection is never silently unrepresented.
+const categoryChips = computed(() => {
+  if (!isCategoryType(form.type)) return []
+  const base = suggestedCategories(form.type)
+  if (!form.label || base.some((c) => c.name.toLowerCase() === form.label.toLowerCase())) return base
+  return [...base, { id: form.label, name: form.label }]
+})
 const peopleSuggestions = computed(() => (isPersonType(form.type) ? suggestedPeople() : []))
+const labelSuggestions = computed(() => (isCategoryType(form.type) ? categoryChips.value : peopleSuggestions.value))
+
+const showCategoryPicker = ref(false)
+
+// Free text is people-only now — categories go through CategoryPicker instead. Default to the chip picker; drop
+// into free-text mode only if the starting label (edit/prefill) isn't one of the suggestions.
+const newLabelMode = ref(
+  isPersonType(form.type) &&
+    Boolean(form.label) &&
+    !peopleSuggestions.value.some((s) => s.name.toLowerCase() === form.label.toLowerCase()),
+)
+function selectLabelChip(name: string) {
+  form.label = name
+  newLabelMode.value = false
+}
+function pickCategory(name: string) {
+  selectLabelChip(name)
+  showCategoryPicker.value = false
+}
+function openNewLabel() {
+  form.label = ''
+  newLabelMode.value = true
+}
+
+const walletExpanded = ref(false)
+const dateExpanded = ref(false)
+const moreExpanded = ref(false)
+
+const activeWalletName = computed(() => wallets.value.find((w) => w.id === form.walletId)?.name ?? '')
+const dateDisplay = computed(() => (form.date === today ? 'Today' : form.date))
 
 // Repay/payback: show the running balance with the typed person, if there's any history.
 const debtHint = computed(() => {
@@ -99,6 +140,7 @@ watch(
   () => form.type,
   () => {
     form.label = ''
+    newLabelMode.value = false
   },
 )
 
@@ -195,49 +237,64 @@ async function submit() {
 </script>
 
 <template>
-  <div class="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center">
+  <div class="fixed inset-0 z-50 flex flex-col">
     <div class="absolute inset-0 bg-black/60" @click="emit('close')" />
+    <div class="relative shrink-0 flex items-end px-5 pb-1.5" style="height: 64px" @click="emit('close')">
+      <p class="text-sm font-semibold" style="color: var(--text-dim)">{{ activeWalletName }}</p>
+    </div>
+    <div class="relative flex-1 min-h-0" @click="emit('close')" />
     <form
-      class="relative w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl p-5 pb-8 sm:pb-5 max-h-[90vh] overflow-y-auto"
-      style="background: var(--ink-raised)"
+      class="relative rounded-t-[26px] border-t p-5 pb-7 flex flex-col gap-[18px] max-h-[85vh] overflow-y-auto"
+      style="background: var(--surface); border-color: var(--line)"
       @submit.prevent="submit"
     >
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-base font-semibold">{{ editing ? 'Edit entry' : 'Add entry' }}</h2>
-        <button type="button" class="text-sm" style="color: var(--paper-dim)" @click="emit('close')">Cancel</button>
-      </div>
+      <div class="self-center rounded-full" style="width: 40px; height: 5px; background: var(--line)" />
 
-      <div class="grid grid-cols-3 gap-2 mb-5">
-        <button
-          v-for="t in types"
-          :key="t.value"
-          type="button"
-          :disabled="!canSelectType(t.value)"
-          class="text-xs py-2 rounded-lg border transition-colors disabled:opacity-40"
-          :style="
-            form.type === t.value
-              ? { background: 'var(--paper)', color: 'var(--ink)', borderColor: 'var(--paper)' }
-              : { borderColor: 'var(--ink-line)', color: 'var(--paper-dim)' }
-          "
-          @click="form.type = t.value"
-        >
-          {{ t.short }}
+      <div class="flex items-center justify-between">
+        <h2 class="text-xl font-extrabold">{{ editing ? 'Edit entry' : 'New entry' }}</h2>
+        <button type="button" class="text-sm font-semibold" style="color: var(--text-dim)" @click="emit('close')">
+          Cancel
         </button>
       </div>
 
-      <label v-if="wallets.length > 1 && form.type !== 'transfer'" class="block mb-4">
-        <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Wallet</span>
-        <select
-          v-model="form.walletId"
-          class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
-          style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+      <div class="grid grid-cols-3 p-1 rounded-2xl" style="background: var(--bg)">
+        <button
+          v-for="t in mainTypes"
+          :key="t.value"
+          type="button"
+          :disabled="!canSelectType(t.value)"
+          class="text-sm py-2.5 rounded-xl disabled:opacity-40"
+          :style="
+            form.type === t.value
+              ? { background: 'var(--text)', color: 'var(--bg)', fontWeight: 800 }
+              : { color: 'var(--text-dim)', fontWeight: 600 }
+          "
+          @click="form.type = t.value"
         >
-          <option v-for="w in wallets" :key="w.id" :value="w.id">{{ w.name }}</option>
-        </select>
-      </label>
+          {{ t.label }}
+        </button>
+      </div>
 
-      <label class="block mb-4">
-        <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Amount</span>
+      <div class="flex gap-2 flex-wrap">
+        <button
+          v-for="t in moreTypes"
+          :key="t.value"
+          type="button"
+          :disabled="!canSelectType(t.value)"
+          class="text-xs py-2 px-3 rounded-full border disabled:opacity-40"
+          :style="
+            form.type === t.value
+              ? { background: 'var(--text)', color: 'var(--bg)', borderColor: 'var(--text)', fontWeight: 700 }
+              : { borderColor: 'var(--line)', color: 'var(--text-dim)', fontWeight: 600 }
+          "
+          @click="form.type = t.value"
+        >
+          {{ t.label }}
+        </button>
+      </div>
+
+      <div class="flex flex-col items-center gap-1 py-1.5">
+        <span class="text-xs font-semibold" style="color: var(--text-dim)">Amount</span>
         <input
           v-model="form.amount"
           type="number"
@@ -247,93 +304,113 @@ async function submit() {
           required
           autofocus
           placeholder="0"
-          class="w-full mt-1 bg-transparent font-mono text-3xl font-semibold outline-none tabular-nums"
-          style="color: var(--paper)"
+          class="w-full bg-transparent text-center font-extrabold outline-none tabular-nums"
+          style="color: var(--text); font-size: 44px; letter-spacing: -1px"
         />
-      </label>
+      </div>
 
-      <label v-if="form.type === 'expense' || form.type === 'income'" class="block mb-4">
-        <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">{{
-          TYPE_META[form.type].labelHint
-        }}</span>
+      <div v-if="form.type === 'save' || form.type === 'withdraw'" class="flex flex-col gap-2">
+        <span class="text-xs font-semibold" style="color: var(--text-dim)">{{ TYPE_META[form.type].labelHint }}</span>
         <input
           v-model="form.label"
           type="text"
-          list="category-suggestions"
-          required
-          placeholder="Type or pick a category"
-          class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
-          style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+          class="w-full rounded-lg px-3 py-2 text-base outline-none border"
+          style="background: var(--bg); border-color: var(--line); color: var(--text)"
         />
-        <datalist id="category-suggestions">
-          <option v-for="c in categorySuggestions" :key="c.id" :value="c.name" />
-        </datalist>
-      </label>
+      </div>
 
-      <label
-        v-if="form.type === 'lend' || form.type === 'repay' || form.type === 'borrow' || form.type === 'payback'"
-        class="block mb-4"
-      >
-        <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">{{
-          TYPE_META[form.type].labelHint
-        }}</span>
+      <div v-else-if="form.type !== 'transfer'" class="flex flex-col gap-2">
+        <span class="text-xs font-semibold" style="color: var(--text-dim)">{{ TYPE_META[form.type].labelHint }}</span>
+        <div class="flex gap-2 flex-wrap">
+          <button
+            v-for="s in labelSuggestions"
+            :key="s.id"
+            type="button"
+            class="text-[13px] py-2 px-3.5 rounded-full"
+            :style="
+              !newLabelMode && form.label.toLowerCase() === s.name.toLowerCase()
+                ? { background: 'var(--accent)', color: 'var(--on-accent)', fontWeight: 800 }
+                : { background: 'var(--bg)', color: 'var(--text)', fontWeight: 600 }
+            "
+            @click="selectLabelChip(s.name)"
+          >
+            {{ s.name }}
+          </button>
+          <button
+            v-if="isCategoryType(form.type)"
+            type="button"
+            class="inline-flex items-center gap-1 text-[13px] py-2 px-3.5 rounded-full border border-dashed"
+            style="border-color: var(--line); color: var(--text); font-weight: 700"
+            @click="showCategoryPicker = true"
+          >
+            More
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </button>
+          <button
+            v-else
+            type="button"
+            class="text-[13px] py-2 px-3.5 rounded-full border border-dashed"
+            style="border-color: var(--line); color: var(--text-dim); font-weight: 600"
+            @click="openNewLabel"
+          >
+            + New
+          </button>
+        </div>
         <input
+          v-if="newLabelMode && isPersonType(form.type)"
           v-model="form.label"
           type="text"
-          list="person-suggestions"
+          autofocus
           :required="form.type !== 'lend'"
-          placeholder="Type or pick a name"
-          class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
-          style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+          placeholder="Type a name"
+          class="w-full rounded-lg px-3 py-2 text-base outline-none border"
+          style="background: var(--bg); border-color: var(--line); color: var(--text)"
         />
-        <datalist id="person-suggestions">
-          <option v-for="p in peopleSuggestions" :key="p.id" :value="p.name" />
-        </datalist>
-        <p v-if="debtHint" class="text-xs mt-1" style="color: var(--paper-dim)">
+        <p v-if="debtHint" class="text-xs" style="color: var(--text-dim)">
           {{ debtHint.text }} {{ format(debtHint.amount) }}
         </p>
-      </label>
-
-      <label v-if="form.type === 'save' || form.type === 'withdraw'" class="block mb-4">
-        <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">{{
-          TYPE_META[form.type].labelHint
-        }}</span>
-        <input
-          v-model="form.label"
-          type="text"
-          class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
-          style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
-        />
-      </label>
+      </div>
 
       <template v-if="form.type === 'transfer'">
-        <div v-if="editing" class="mb-4 text-sm space-y-2">
+        <div v-if="editing" class="text-sm flex flex-col gap-2">
           <p>
-            <span class="text-xs uppercase tracking-wide block" style="color: var(--paper-dim)">From</span>
+            <span class="text-xs font-semibold block" style="color: var(--text-dim)">From</span>
             {{ wallets.find((w) => w.id === form.fromWalletId)?.name ?? '—' }}
           </p>
           <p>
-            <span class="text-xs uppercase tracking-wide block" style="color: var(--paper-dim)">To</span>
+            <span class="text-xs font-semibold block" style="color: var(--text-dim)">To</span>
             {{ wallets.find((w) => w.id === form.toWalletId)?.name ?? '—' }}
           </p>
         </div>
         <template v-else>
-          <label class="block mb-4">
-            <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">From wallet</span>
+          <label class="flex flex-col gap-2">
+            <span class="text-xs font-semibold" style="color: var(--text-dim)">From wallet</span>
             <select
               v-model="form.fromWalletId"
-              class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
-              style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+              class="w-full rounded-lg px-3 py-2 text-base outline-none border"
+              style="background: var(--bg); border-color: var(--line); color: var(--text)"
             >
               <option v-for="w in wallets" :key="w.id" :value="w.id">{{ w.name }}</option>
             </select>
           </label>
-          <label class="block mb-4">
-            <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">To wallet</span>
+          <label class="flex flex-col gap-2">
+            <span class="text-xs font-semibold" style="color: var(--text-dim)">To wallet</span>
             <select
               v-model="form.toWalletId"
-              class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
-              style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+              class="w-full rounded-lg px-3 py-2 text-base outline-none border"
+              style="background: var(--bg); border-color: var(--line); color: var(--text)"
             >
               <option v-for="w in wallets" :key="w.id" :value="w.id">{{ w.name }}</option>
             </select>
@@ -341,42 +418,129 @@ async function submit() {
         </template>
       </template>
 
-      <label class="block mb-4">
-        <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Note (optional)</span>
-        <input
-          v-model="form.note"
-          type="text"
-          class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
-          style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
-        />
-      </label>
+      <div class="rounded-2xl" style="background: var(--bg)">
+        <template v-if="wallets.length > 1 && form.type !== 'transfer'">
+          <button
+            type="button"
+            class="w-full flex items-center gap-3 px-3.5 text-left border-b"
+            style="min-height: 50px; border-color: var(--line)"
+            @click="walletExpanded = !walletExpanded"
+          >
+            <span class="flex-1 text-sm font-semibold" style="color: var(--text-dim)">Wallet</span>
+            <span class="text-sm font-bold">{{ activeWalletName }}</span>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--text-dim)"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="m9 6 6 6-6 6" />
+            </svg>
+          </button>
+          <div v-if="walletExpanded" class="px-3.5 py-3 border-b" style="border-color: var(--line)">
+            <select
+              v-model="form.walletId"
+              class="w-full rounded-lg px-3 py-2 text-base outline-none border"
+              style="background: var(--surface); border-color: var(--line); color: var(--text)"
+            >
+              <option v-for="w in wallets" :key="w.id" :value="w.id">{{ w.name }}</option>
+            </select>
+          </div>
+        </template>
 
-      <div class="flex items-center gap-3 mb-6">
-        <label class="flex-1">
-          <span class="text-xs uppercase tracking-wide" style="color: var(--paper-dim)">Date</span>
+        <button
+          type="button"
+          class="w-full flex items-center gap-3 px-3.5 text-left border-b"
+          style="min-height: 50px; border-color: var(--line)"
+          @click="dateExpanded = !dateExpanded"
+        >
+          <span class="flex-1 text-sm font-semibold" style="color: var(--text-dim)">Date</span>
+          <span class="text-sm font-bold">{{ dateDisplay }}</span>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="var(--text-dim)"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="m9 6 6 6-6 6" />
+          </svg>
+        </button>
+        <div v-if="dateExpanded" class="px-3.5 py-3 border-b" style="border-color: var(--line)">
           <input
             v-model="form.date"
             type="date"
-            class="w-full mt-1 rounded-lg px-3 py-2 text-base outline-none border"
-            style="background: var(--ink); border-color: var(--ink-line); color: var(--paper)"
+            autofocus
+            class="w-full rounded-lg px-3 py-2 text-base outline-none border"
+            style="background: var(--surface); border-color: var(--line); color: var(--text)"
           />
-        </label>
-        <label class="flex items-center gap-2 pt-5 text-sm select-none" style="color: var(--paper-dim)">
-          <input v-model="form.planned" type="checkbox" class="accent-[color:var(--accent)]" />
-          Just planned
-        </label>
+        </div>
+
+        <button
+          type="button"
+          class="w-full flex items-center gap-3 px-3.5 text-left"
+          style="min-height: 50px"
+          @click="moreExpanded = !moreExpanded"
+        >
+          <span class="flex-1 text-sm font-semibold" style="color: var(--text-dim)">Note, planned</span>
+          <span class="text-sm font-bold">{{ moreExpanded ? 'Hide' : 'Add' }}</span>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="var(--text-dim)"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="m9 6 6 6-6 6" />
+          </svg>
+        </button>
+        <div v-if="moreExpanded" class="px-3.5 pb-3.5 flex flex-col gap-3">
+          <label class="flex flex-col gap-1.5">
+            <span class="text-xs font-semibold" style="color: var(--text-dim)">Note (optional)</span>
+            <input
+              v-model="form.note"
+              type="text"
+              class="w-full rounded-lg px-3 py-2 text-base outline-none border"
+              style="background: var(--surface); border-color: var(--line); color: var(--text)"
+            />
+          </label>
+          <label class="flex items-center gap-2 text-sm select-none" style="color: var(--text-dim)">
+            <input v-model="form.planned" type="checkbox" class="accent-[color:var(--accent)]" />
+            Just planned
+          </label>
+        </div>
       </div>
 
-      <p v-if="submitError" class="text-xs mb-3" style="color: var(--money-out)">{{ submitError }}</p>
+      <p v-if="submitError" class="text-xs" style="color: var(--warn-text)">{{ submitError }}</p>
 
       <button
         type="submit"
         :disabled="submitting"
-        class="w-full py-3 rounded-xl font-medium text-sm disabled:opacity-50"
-        style="background: var(--accent); color: var(--ink)"
+        class="py-3.5 rounded-2xl font-extrabold text-base disabled:opacity-50 mt-1"
+        style="background: var(--accent); color: var(--on-accent)"
       >
-        {{ submitting ? 'Saving…' : editing ? 'Save changes' : 'Save entry' }}
+        {{ submitting ? 'Saving…' : editing ? 'Save changes' : `Save · ${format(parseFloat(form.amount) || 0)}` }}
       </button>
     </form>
+
+    <CategoryPicker
+      v-if="showCategoryPicker && isCategoryType(form.type)"
+      :kind="form.type"
+      @select="pickCategory"
+      @back="showCategoryPicker = false"
+    />
   </div>
 </template>

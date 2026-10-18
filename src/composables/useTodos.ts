@@ -55,8 +55,29 @@ const state = reactive({
   todos: [] as Todo[],
 })
 
+export function todayStr() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+/** End of the "this week" window — today plus the next 6 days, 7 days total. */
+export function weekEndStr() {
+  const d = new Date()
+  d.setDate(d.getDate() + 6)
+  return d.toISOString().slice(0, 10)
+}
+
 export function useTodos() {
   const todos = computed(() => state.todos)
+
+  /** Any overdue to-do counts here, regardless of amount — for the To-dos nav icon's badge. */
+  const overdueCount = computed(() => state.todos.filter((t) => !t.done && t.dueDate && t.dueDate < todayStr()).length)
+
+  /** Home's to-do strip: only amount-bearing to-dos that are overdue or due within the next 7 days. Null hides the strip. */
+  const dueThisWeekSummary = computed(() => {
+    const items = state.todos.filter((t) => !t.done && t.amount != null && t.dueDate && t.dueDate <= weekEndStr())
+    if (!items.length) return null
+    return { count: items.length, total: items.reduce((s, t) => s + (t.amount ?? 0), 0) }
+  })
 
   async function addTodo(input: {
     title: string
@@ -104,6 +125,8 @@ export function useTodos() {
 
   return {
     todos,
+    overdueCount,
+    dueThisWeekSummary,
     addTodo,
     setDone,
     removeTodo,
