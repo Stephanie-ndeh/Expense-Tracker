@@ -11,6 +11,7 @@ import ProView from './components/ProView.vue'
 import BottomNav from './components/BottomNav.vue'
 import UpdateBanner from './components/UpdateBanner.vue'
 import AuthGate from './components/AuthGate.vue'
+import ResetPasswordView from './components/ResetPasswordView.vue'
 import { useAuth } from './composables/useAuth'
 import type { Transaction, TransactionType } from './types/transaction'
 
@@ -24,7 +25,7 @@ const editingTransaction = ref<Transaction | null>(null)
 const todoPrefill = ref<{ type?: TransactionType; amount?: number; label?: string; walletId?: string } | null>(null)
 const showPeople = ref(false)
 
-const { enabled: syncEnabled, loading: authLoading, isAuthenticated } = useAuth()
+const { enabled: syncEnabled, loading: authLoading, isAuthenticated, passwordRecovery } = useAuth()
 
 function closeAddEntry() {
   showAdd.value = false
@@ -47,6 +48,7 @@ function navigate(v: NavView) {
   <UpdateBanner />
 
   <div v-if="syncEnabled && authLoading" class="min-h-screen" style="background: var(--bg)" />
+  <ResetPasswordView v-else-if="syncEnabled && passwordRecovery" />
   <AuthGate v-else-if="syncEnabled && !isAuthenticated" />
 
   <template v-else>
