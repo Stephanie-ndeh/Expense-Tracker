@@ -8,7 +8,6 @@ import type { TransactionType } from '../types/transaction'
 import type { Todo } from '../types/todo'
 
 const emit = defineEmits<{
-  back: []
   log: [prefill: { type?: TransactionType; amount?: number; label?: string; walletId?: string }]
 }>()
 const { todos, addTodo, setDone, removeTodo } = useTodos()
@@ -116,11 +115,8 @@ function walletName(id: string | null) {
 </script>
 
 <template>
-  <div class="min-h-screen pb-28" style="background: var(--bg); color: var(--text)">
+  <div class="pb-10">
     <header class="flex items-center gap-3 px-5 pt-5 pb-2">
-      <button aria-label="Back" class="text-lg leading-none" style="color: var(--text-dim)" @click="emit('back')">
-        ‹
-      </button>
       <h1 class="text-sm font-semibold">Money to-do list</h1>
     </header>
 
@@ -183,7 +179,7 @@ function walletName(id: string | null) {
     </div>
 
     <button
-      class="fixed bottom-6 left-1/2 -translate-x-1/2 px-6 py-3.5 rounded-full font-medium text-sm shadow-lg"
+      class="fixed bottom-24 right-5 px-5 py-3 rounded-full font-medium text-sm shadow-lg"
       style="background: var(--accent); color: var(--on-accent)"
       @click="openAdd"
     >
