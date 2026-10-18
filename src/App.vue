@@ -13,6 +13,7 @@ import UpdateBanner from './components/UpdateBanner.vue'
 import AuthGate from './components/AuthGate.vue'
 import ResetPasswordView from './components/ResetPasswordView.vue'
 import { useAuth } from './composables/useAuth'
+import { useTodos } from './composables/useTodos'
 import type { Transaction, TransactionType } from './types/transaction'
 
 type NavView = 'home' | 'activity' | 'todos' | 'me'
@@ -26,6 +27,7 @@ const todoPrefill = ref<{ type?: TransactionType; amount?: number; label?: strin
 const showPeople = ref(false)
 
 const { enabled: syncEnabled, loading: authLoading, isAuthenticated, passwordRecovery } = useAuth()
+const { overdueCount } = useTodos()
 
 function closeAddEntry() {
   showAdd.value = false
@@ -64,7 +66,6 @@ function navigate(v: NavView) {
           @open-activity-list="openActivity('list')"
           @open-todos="view = 'todos'"
           @edit="editingTransaction = $event"
-          @log-prefill="todoPrefill = $event"
         />
 
         <ActivityView v-else-if="view === 'activity'" :initial-tab="activityTab" @edit="editingTransaction = $event" />
@@ -79,7 +80,7 @@ function navigate(v: NavView) {
         />
       </div>
 
-      <BottomNav :active="view" @navigate="navigate" @add="showAdd = true" />
+      <BottomNav :active="view" :overdue-count="overdueCount" @navigate="navigate" @add="showAdd = true" />
 
       <PeopleView v-if="showPeople" @close="showPeople = false" />
     </template>

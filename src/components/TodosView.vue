@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
-import { useTodos } from '../composables/useTodos'
+import { useTodos, todayStr, weekEndStr } from '../composables/useTodos'
 import { useSettings } from '../composables/useSettings'
 import { useWallets } from '../composables/useWallets'
 import { useLedger } from '../composables/useLedger'
@@ -14,15 +14,6 @@ const { todos, addTodo, setDone, removeTodo } = useTodos()
 const { format } = useSettings()
 const { wallets } = useWallets()
 const { balance } = useLedger()
-
-function todayStr() {
-  return new Date().toISOString().slice(0, 10)
-}
-function weekEndStr() {
-  const d = new Date()
-  d.setDate(d.getDate() + 6)
-  return d.toISOString().slice(0, 10)
-}
 
 const pendingTodos = computed(() => todos.value.filter((t) => !t.done))
 const completed = computed(() => todos.value.filter((t) => t.done))

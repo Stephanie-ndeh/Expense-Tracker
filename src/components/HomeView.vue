@@ -4,9 +4,9 @@ import BalanceHero from './BalanceHero.vue'
 import SummaryCards from './SummaryCards.vue'
 import ThisMonthCard from './ThisMonthCard.vue'
 import TransactionFeed from './TransactionFeed.vue'
-import UpNext from './UpNext.vue'
+import TodoStrip from './TodoStrip.vue'
 import RecentActivity from './RecentActivity.vue'
-import type { Transaction, TransactionType } from '../types/transaction'
+import type { Transaction } from '../types/transaction'
 
 const emit = defineEmits<{
   openPeople: []
@@ -14,7 +14,6 @@ const emit = defineEmits<{
   openActivityList: []
   openTodos: []
   edit: [transaction: Transaction]
-  logPrefill: [prefill: { type?: TransactionType; amount?: number; label?: string; walletId?: string }]
 }>()
 </script>
 
@@ -25,7 +24,7 @@ const emit = defineEmits<{
     <SummaryCards @open-people="emit('openPeople')" />
     <ThisMonthCard @open-insights="emit('openInsights')" />
     <TransactionFeed @edit="emit('edit', $event)" />
-    <UpNext @see-all="emit('openTodos')" @log="emit('logPrefill', $event)" />
+    <TodoStrip @open="emit('openTodos')" />
     <RecentActivity @see-all="emit('openActivityList')" @edit="emit('edit', $event)" />
   </div>
 </template>

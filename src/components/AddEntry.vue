@@ -222,9 +222,12 @@ async function submit() {
 </script>
 
 <template>
-  <div class="fixed inset-0 z-50 flex flex-col justify-end">
+  <div class="fixed inset-0 z-50 flex flex-col">
     <div class="absolute inset-0 bg-black/60" @click="emit('close')" />
-    <p class="relative px-5 pt-5 text-sm font-semibold" style="color: var(--text-dim)">{{ activeWalletName }}</p>
+    <div class="relative shrink-0 flex items-end px-5 pb-1.5" style="height: 64px" @click="emit('close')">
+      <p class="text-sm font-semibold" style="color: var(--text-dim)">{{ activeWalletName }}</p>
+    </div>
+    <div class="relative flex-1 min-h-0" @click="emit('close')" />
     <form
       class="relative rounded-t-[26px] border-t p-5 pb-7 flex flex-col gap-[18px] max-h-[85vh] overflow-y-auto"
       style="background: var(--surface); border-color: var(--line)"
