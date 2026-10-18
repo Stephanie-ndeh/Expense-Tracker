@@ -13,6 +13,26 @@ function uid() {
   return crypto.randomUUID()
 }
 
+/** Shown when an account has no categories of that kind yet — nothing is written to the database until the user
+ *  actually picks one and saves an entry, same as every other find-or-create category/person flow in the app. */
+const DEFAULT_CATEGORY_NAMES: Record<CategoryKind, string[]> = {
+  expense: [
+    'Food',
+    'Transport',
+    'Bills',
+    'Airtime/Data',
+    'Shopping',
+    'Health',
+    'Personal care',
+    'Household',
+    'Fitness',
+    'Family',
+    'Church/Giving',
+    'Other',
+  ],
+  income: ['Salary', 'Business', 'Gift', 'Other'],
+}
+
 function isOnline() {
   return typeof navigator === 'undefined' || navigator.onLine
 }
@@ -116,15 +136,44 @@ export function useLedger() {
   const { people } = usePeople()
 
   /** Categories of the given kind, most-used-first (ties keep the categories table's order). */
-  function suggestedCategories(kind: CategoryKind) {
+  /** Quick-chip suggestions for Add entry: ranked by uses in the last 90 days, ties broken by most recently used.
+   *  Falls back to design/DESIGN.md's defaults (as name-only placeholders, not real rows) when there's no history yet. */
+  function suggestedCategories(kind: CategoryKind, limit = 6) {
+    const existing = categories.value.filter((c) => c.kind === kind)
+    if (!existing.length) {
+      return DEFAULT_CATEGORY_NAMES[kind].slice(0, limit).map((name) => ({ id: name, name }))
+    }
+
+    const windowStart = new Date()
+    windowStart.setDate(windowStart.getDate() - 90)
+    const windowStartStr = windowStart.toISOString().slice(0, 10)
+
+    const stats = new Map<string, { count: number; lastUsed: number }>()
+    for (const t of state.transactions) {
+      if (!t.categoryId || t.type !== kind || t.date < windowStartStr) continue
+      const s = stats.get(t.categoryId) ?? { count: 0, lastUsed: 0 }
+      s.count += 1
+      if (t.createdAt > s.lastUsed) s.lastUsed = t.createdAt
+      stats.set(t.categoryId, s)
+    }
+
+    return existing
+      .slice()
+      .sort((a, b) => {
+        const sa = stats.get(a.id) ?? { count: 0, lastUsed: 0 }
+        const sb = stats.get(b.id) ?? { count: 0, lastUsed: 0 }
+        return sb.count - sa.count || sb.lastUsed - sa.lastUsed
+      })
+      .slice(0, limit)
+  }
+
+  /** All-time entry counts per category of a kind — for CategoryPicker.vue's list, not the 90-day ranking above. */
+  function categoryUsageCounts(kind: CategoryKind) {
     const counts = new Map<string, number>()
     for (const t of state.transactions) {
       if (t.categoryId && t.type === kind) counts.set(t.categoryId, (counts.get(t.categoryId) ?? 0) + 1)
     }
-    return categories.value
-      .filter((c) => c.kind === kind)
-      .slice()
-      .sort((a, b) => (counts.get(b.id) ?? 0) - (counts.get(a.id) ?? 0))
+    return counts
   }
 
   /** People used in lend/repay/borrow/payback entries, most-used-first (ties keep the people table's order). */
@@ -704,6 +753,7 @@ export function useLedger() {
     transferSibling,
     markSettled,
     suggestedCategories,
+    categoryUsageCounts,
     suggestedPeople,
     personSummaries,
     monthlyTrend,

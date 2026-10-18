@@ -7,6 +7,7 @@ import { useSettings } from '../composables/useSettings'
 import { useWallets } from '../composables/useWallets'
 import { useCategories } from '../composables/useCategories'
 import { usePeople } from '../composables/usePeople'
+import CategoryPicker from './CategoryPicker.vue'
 
 type UiType = TransactionType | 'transfer'
 
@@ -83,22 +84,36 @@ function canSelectType(value: UiType) {
   return value !== 'transfer'
 }
 
-const categorySuggestions = computed(() =>
-  form.type === 'expense' || form.type === 'income' ? suggestedCategories(form.type) : [],
-)
+const isCategoryType = (t: UiType): t is 'expense' | 'income' => t === 'expense' || t === 'income'
 const isPersonType = (t: UiType) => t === 'lend' || t === 'repay' || t === 'borrow' || t === 'payback'
-const peopleSuggestions = computed(() => (isPersonType(form.type) ? suggestedPeople() : []))
-const labelSuggestions = computed(() =>
-  form.type === 'expense' || form.type === 'income' ? categorySuggestions.value : peopleSuggestions.value,
-)
 
-// Default to the chip picker; drop into free-text mode only if the starting label (edit/prefill) isn't one of the suggestions.
+// Always include the current label as a chip even if it's not in the top-6 ranking (e.g. editing an older entry),
+// so the existing selection is never silently unrepresented.
+const categoryChips = computed(() => {
+  if (!isCategoryType(form.type)) return []
+  const base = suggestedCategories(form.type)
+  if (!form.label || base.some((c) => c.name.toLowerCase() === form.label.toLowerCase())) return base
+  return [...base, { id: form.label, name: form.label }]
+})
+const peopleSuggestions = computed(() => (isPersonType(form.type) ? suggestedPeople() : []))
+const labelSuggestions = computed(() => (isCategoryType(form.type) ? categoryChips.value : peopleSuggestions.value))
+
+const showCategoryPicker = ref(false)
+
+// Free text is people-only now — categories go through CategoryPicker instead. Default to the chip picker; drop
+// into free-text mode only if the starting label (edit/prefill) isn't one of the suggestions.
 const newLabelMode = ref(
-  Boolean(form.label) && !labelSuggestions.value.some((s) => s.name.toLowerCase() === form.label.toLowerCase()),
+  isPersonType(form.type) &&
+    Boolean(form.label) &&
+    !peopleSuggestions.value.some((s) => s.name.toLowerCase() === form.label.toLowerCase()),
 )
 function selectLabelChip(name: string) {
   form.label = name
   newLabelMode.value = false
+}
+function pickCategory(name: string) {
+  selectLabelChip(name)
+  showCategoryPicker.value = false
 }
 function openNewLabel() {
   form.label = ''
@@ -322,6 +337,29 @@ async function submit() {
             {{ s.name }}
           </button>
           <button
+            v-if="isCategoryType(form.type)"
+            type="button"
+            class="inline-flex items-center gap-1 text-[13px] py-2 px-3.5 rounded-full border border-dashed"
+            style="border-color: var(--line); color: var(--text); font-weight: 700"
+            @click="showCategoryPicker = true"
+          >
+            More
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </button>
+          <button
+            v-else
             type="button"
             class="text-[13px] py-2 px-3.5 rounded-full border border-dashed"
             style="border-color: var(--line); color: var(--text-dim); font-weight: 600"
@@ -331,12 +369,12 @@ async function submit() {
           </button>
         </div>
         <input
-          v-if="newLabelMode"
+          v-if="newLabelMode && isPersonType(form.type)"
           v-model="form.label"
           type="text"
           autofocus
           :required="form.type !== 'lend'"
-          :placeholder="isPersonType(form.type) ? 'Type a name' : 'Type a category'"
+          placeholder="Type a name"
           class="w-full rounded-lg px-3 py-2 text-base outline-none border"
           style="background: var(--bg); border-color: var(--line); color: var(--text)"
         />
@@ -497,5 +535,12 @@ async function submit() {
         {{ submitting ? 'Saving…' : editing ? 'Save changes' : `Save · ${format(parseFloat(form.amount) || 0)}` }}
       </button>
     </form>
+
+    <CategoryPicker
+      v-if="showCategoryPicker && isCategoryType(form.type)"
+      :kind="form.type"
+      @select="pickCategory"
+      @back="showCategoryPicker = false"
+    />
   </div>
 </template>
