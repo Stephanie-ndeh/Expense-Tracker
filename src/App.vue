@@ -7,6 +7,7 @@ import ActivityView from './components/ActivityView.vue'
 import TodosView from './components/TodosView.vue'
 import MeView from './components/MeView.vue'
 import AppearanceView from './components/AppearanceView.vue'
+import ProView from './components/ProView.vue'
 import BottomNav from './components/BottomNav.vue'
 import UpdateBanner from './components/UpdateBanner.vue'
 import AuthGate from './components/AuthGate.vue'
@@ -14,7 +15,7 @@ import { useAuth } from './composables/useAuth'
 import type { Transaction, TransactionType } from './types/transaction'
 
 type NavView = 'home' | 'activity' | 'todos' | 'me'
-type View = NavView | 'appearance'
+type View = NavView | 'appearance' | 'pro'
 const view = ref<View>('home')
 const activityTab = ref<'list' | 'insights'>('list')
 
@@ -50,6 +51,7 @@ function navigate(v: NavView) {
 
   <template v-else>
     <AppearanceView v-if="view === 'appearance'" @back="view = 'me'" />
+    <ProView v-else-if="view === 'pro'" @back="view = 'me'" />
 
     <template v-else>
       <div class="pb-28" style="background: var(--bg); color: var(--text); min-height: 100vh">
@@ -67,7 +69,12 @@ function navigate(v: NavView) {
 
         <TodosView v-else-if="view === 'todos'" @log="todoPrefill = $event" />
 
-        <MeView v-else-if="view === 'me'" @open-appearance="view = 'appearance'" />
+        <MeView
+          v-else-if="view === 'me'"
+          @open-appearance="view = 'appearance'"
+          @open-pro="view = 'pro'"
+          @open-people="showPeople = true"
+        />
       </div>
 
       <BottomNav :active="view" @navigate="navigate" @add="showAdd = true" />
