@@ -510,20 +510,20 @@ export function useLedger() {
     return d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
   }
 
-  const monthComparison = computed(() => {
-    const curKey = monthKey(0)
-    const prevKey = monthKey(-1)
+  function monthComparison(offset = 0) {
+    const curKey = monthKey(offset)
+    const prevKey = monthKey(offset - 1)
     const sumFor = (key: string, type: TransactionType) =>
       settled.value.filter((t) => t.type === type && t.date.slice(0, 7) === key).reduce((s, t) => s + t.amount, 0)
     return {
-      currentLabel: monthName(0),
-      previousLabel: monthName(-1),
+      currentLabel: monthName(offset),
+      previousLabel: monthName(offset - 1),
       expense: { current: sumFor(curKey, 'expense'), previous: sumFor(prevKey, 'expense') },
       income: { current: sumFor(curKey, 'income'), previous: sumFor(prevKey, 'income') },
       lent: { current: sumFor(curKey, 'lend'), previous: sumFor(prevKey, 'lend') },
       saved: { current: sumFor(curKey, 'save'), previous: sumFor(prevKey, 'save') },
     }
-  })
+  }
 
   function categoryBreakdown(offset = 0) {
     const key = monthKey(offset)
@@ -538,9 +538,9 @@ export function useLedger() {
       .sort((a, b) => b.amount - a.amount)
   }
 
-  const categoryComparison = computed(() => {
-    const cur = categoryBreakdown(0)
-    const prev = categoryBreakdown(-1)
+  function categoryComparison(offset = 0) {
+    const cur = categoryBreakdown(offset)
+    const prev = categoryBreakdown(offset - 1)
     const prevMap = new Map(prev.map((c) => [c.label, c.amount]))
     const seen = new Set<string>()
     const rows = cur.map((c) => {
@@ -551,7 +551,7 @@ export function useLedger() {
       if (!seen.has(p.label)) rows.push({ label: p.label, current: 0, previous: p.amount })
     }
     return rows.sort((a, b) => b.current - a.current)
-  })
+  }
 
   function exportData() {
     return JSON.stringify(
