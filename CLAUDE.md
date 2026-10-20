@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 "Reckon" — a single-user expense/lending/savings tracker built as an installable PWA, backed by Supabase (Postgres + email/password auth). Everything — wallets, transactions, categories, people, and the currency/display-name profile — lives in Supabase, scoped per-user via Row Level Security (`supabase/schema.sql`); the one thing in `localStorage` is the `theme` display setting (`useSettings.ts`), deliberately device-local rather than synced — see "Theming" below. See `README.md` for the product description.
 
+## Working style
+
+Don't comply silently with an instruction that conflicts with a known limitation, an existing inconsistency, or a clearly better approach — flag it before or while implementing, even when the instruction is detailed and specific (detail isn't the same as correctness). Example: a phase spec once said "download a CSV backup" as the safety net right before an irreversible data wipe — CSV export in this app is one-way/read-only (only JSON round-trips via `exportData()`/`importData()`), so that CSV button couldn't actually have restored anything. That should have been flagged before building it, not after. Still implement what the user confirms after hearing the concern — this isn't about refusing or second-guessing everything.
+
 ## Commands
 
 ```bash
