@@ -11,6 +11,7 @@ A tiny, honest expense tracker for yourself: what you have, what you're owed, wh
 - **Savings** — money you've set aside, tracked separately from spendable balance.
 - **Coming up** — expenses/loans you know are coming but haven't happened yet (mark "Just planned" or pick a future date), so you can see what you'll be down to.
 - Sign in with email/password and your data syncs to your account via Supabase — available on any device you sign into, gone from the app the moment you sign out of a browser.
+- **Clear all data** — Me → Danger zone, for a full account reset: permanently deletes everything you've logged (with a one-tap JSON backup offered first, since that's the format you can restore from), keeping your sign-in and default wallet.
 
 ## Run it locally
 

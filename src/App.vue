@@ -26,6 +26,12 @@ const showAdd = ref(false)
 const editingTransaction = ref<Transaction | null>(null)
 const todoPrefill = ref<{ type?: TransactionType; amount?: number; label?: string; walletId?: string } | null>(null)
 const showPeople = ref(false)
+const freshStart = ref(false)
+
+function onDataCleared() {
+  view.value = 'home'
+  freshStart.value = true
+}
 
 const { enabled: syncEnabled, loading: authLoading, isAuthenticated, passwordRecovery } = useAuth()
 const { overdueCount } = useTodos()
@@ -63,11 +69,13 @@ function navigate(v: NavView) {
       <div class="pb-28" style="background: var(--bg); color: var(--text); min-height: 100vh">
         <HomeView
           v-if="view === 'home'"
+          :fresh-start="freshStart"
           @open-people="showPeople = true"
           @open-insights="openActivity('insights')"
           @open-activity-list="openActivity('list')"
           @open-todos="view = 'todos'"
           @edit="editingTransaction = $event"
+          @dismiss-fresh-start="freshStart = false"
         />
 
         <ActivityView v-else-if="view === 'activity'" :initial-tab="activityTab" @edit="editingTransaction = $event" />
@@ -80,6 +88,7 @@ function navigate(v: NavView) {
           @open-pro="view = 'pro'"
           @open-people="showPeople = true"
           @open-categories="view = 'categories'"
+          @data-cleared="onDataCleared"
         />
       </div>
 

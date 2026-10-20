@@ -95,6 +95,19 @@ function clearAll() {
   status.queueError = null
 }
 
+/** Me → Danger zone → "Clear all data": hard-deletes everything server-side via one
+ *  atomic RPC (supabase/migrations/015_clear_account_data.sql), drops any offline-queued
+ *  mutations (they'd otherwise point at now-deleted rows), then reuses loadAll() to pull
+ *  the now-wiped-and-reseeded account back into every composable, instead of hand-patching
+ *  each one's local state. */
+async function clearAllData() {
+  if (!supabase) throw new Error('Supabase is not configured')
+  const { error } = await supabase.rpc('clear_all_data')
+  if (error) throw error
+  await clearQueuedMutations()
+  await loadAll()
+}
+
 if (supabaseEnabled) {
   const { isAuthenticated } = useAuth()
   watch(
@@ -121,5 +134,6 @@ export function useSync() {
     error: computed(() => status.error),
     queueError: computed(() => status.queueError),
     syncNow: loadAll,
+    clearAllData,
   }
 }

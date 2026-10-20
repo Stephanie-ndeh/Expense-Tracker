@@ -7,9 +7,16 @@ import { useCategories } from '../composables/useCategories'
 import { usePeople } from '../composables/usePeople'
 import { useAuth } from '../composables/useAuth'
 import { useSync } from '../composables/useSync'
+import ClearDataModal from './ClearDataModal.vue'
 import type { Wallet } from '../types/wallet'
 
-const emit = defineEmits<{ openAppearance: []; openPro: []; openPeople: []; openCategories: [] }>()
+const emit = defineEmits<{
+  openAppearance: []
+  openPro: []
+  openPeople: []
+  openCategories: []
+  dataCleared: []
+}>()
 
 const { wallets, addWallet, renameWallet, removeWallet } = useWallets()
 const { settings, updateCurrency, format } = useSettings()
@@ -46,6 +53,12 @@ function lastSyncedLabel() {
 
 const importFile = ref<HTMLInputElement | null>(null)
 const importMessage = ref('')
+
+const showClearData = ref(false)
+function onDataCleared() {
+  showClearData.value = false
+  emit('dataCleared')
+}
 
 function downloadBlob(content: string, mime: string, filename: string) {
   const blob = new Blob([content], { type: mime })
@@ -435,6 +448,25 @@ async function confirmDeleteWallet() {
       <input ref="importFile" type="file" accept="application/json" class="hidden" @change="handleImportFile" />
       <p v-if="importMessage" class="text-xs" style="color: var(--accent-text)">{{ importMessage }}</p>
     </section>
+
+    <section class="flex flex-col gap-2 mt-6 mb-6">
+      <h2 class="text-xs font-bold" style="color: var(--warn-text); letter-spacing: 0.3px">Danger zone</h2>
+      <div
+        class="rounded-2xl border overflow-hidden"
+        style="background: var(--warn-bg); border-color: var(--warn-text)"
+      >
+        <button
+          type="button"
+          class="w-full flex items-center gap-3 px-3.5 text-left"
+          style="min-height: 52px; color: var(--warn-text)"
+          @click="showClearData = true"
+        >
+          <span class="flex-1 text-sm font-semibold">Clear all data</span>
+        </button>
+      </div>
+    </section>
+
+    <ClearDataModal v-if="showClearData" @cleared="onDataCleared" @cancel="showClearData = false" />
 
     <div v-if="pendingRename" class="fixed inset-0 z-50 flex items-center justify-center px-6">
       <div class="absolute inset-0 bg-black/60" @click="pendingRename = null" />
