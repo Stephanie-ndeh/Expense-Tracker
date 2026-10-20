@@ -213,27 +213,11 @@ export function useLedger() {
     settled.value.filter((t) => TYPE_META[t.type].group === 'savings').reduce((sum, t) => sum + signedAmount(t), 0),
   )
 
-  const owedToYou = computed(() => {
-    const perPerson = new Map<string, number>()
-    for (const t of settled.value) {
-      if (t.type === 'lend') perPerson.set(t.label, (perPerson.get(t.label) ?? 0) + t.amount)
-      if (t.type === 'repay') perPerson.set(t.label, (perPerson.get(t.label) ?? 0) - t.amount)
-    }
-    return perPerson
-  })
+  /** Sum of positive combined net balances across people — see `personSummaries.netBalance` below. */
+  const totalOwedToYou = computed(() => personSummaries.value.reduce((s, p) => s + Math.max(p.netBalance, 0), 0))
 
-  const totalOwedToYou = computed(() => Array.from(owedToYou.value.values()).reduce((s, v) => s + Math.max(v, 0), 0))
-
-  const owedByYou = computed(() => {
-    const perPerson = new Map<string, number>()
-    for (const t of settled.value) {
-      if (t.type === 'borrow') perPerson.set(t.label, (perPerson.get(t.label) ?? 0) + t.amount)
-      if (t.type === 'payback') perPerson.set(t.label, (perPerson.get(t.label) ?? 0) - t.amount)
-    }
-    return perPerson
-  })
-
-  const totalOwedByYou = computed(() => Array.from(owedByYou.value.values()).reduce((s, v) => s + Math.max(v, 0), 0))
+  /** Sum of |negative| combined net balances across people — see `personSummaries.netBalance` below. */
+  const totalOwedByYou = computed(() => personSummaries.value.reduce((s, p) => s + Math.max(-p.netBalance, 0), 0))
 
   const plannedSpend = computed(() =>
     upcoming.value
@@ -494,26 +478,50 @@ export function useLedger() {
     }
     return Array.from(byPerson.entries())
       .map(([name, list]) => {
-        const settledList = list.filter((t) => !t.planned)
+        const settledList = list.filter((t) => !t.planned && t.date <= today())
         const lent = settledList.filter((t) => t.type === 'lend').reduce((s, t) => s + t.amount, 0)
         const repaid = settledList.filter((t) => t.type === 'repay').reduce((s, t) => s + t.amount, 0)
         const borrowed = settledList.filter((t) => t.type === 'borrow').reduce((s, t) => s + t.amount, 0)
         const paidBack = settledList.filter((t) => t.type === 'payback').reduce((s, t) => s + t.amount, 0)
+        // Positive = they owe you overall, negative = you owe them overall, zero = settled —
+        // lending and borrowing activity with the same person combine into one figure rather
+        // than being tracked as two independent directions.
+        const netBalance = lent - repaid - borrowed + paidBack
+        // The entry that "brought them to zero": since the combined balance is 0 by definition
+        // here, that's simply whichever settled entry happened last for this person.
+        const settledDate =
+          netBalance === 0 && settledList.length
+            ? [...settledList].sort((a, b) =>
+                a.date === b.date ? b.createdAt - a.createdAt : a.date < b.date ? 1 : -1,
+              )[0].date
+            : null
         return {
           name,
           lent,
           repaid,
           borrowed,
           paidBack,
-          /** owed to you, from lending */
-          netOwed: lent - repaid,
-          /** owed by you, from borrowing */
-          netOwe: borrowed - paidBack,
+          netBalance,
+          settledDate,
           transactions: [...list].sort((a, b) => (a.date < b.date ? 1 : -1)),
         }
       })
-      .sort((a, b) => b.netOwed - b.netOwe - (a.netOwed - a.netOwe))
+      .sort((a, b) => Math.abs(b.netBalance) - Math.abs(a.netBalance))
   })
+
+  const peopleOwedToYou = computed(() =>
+    personSummaries.value.filter((p) => p.netBalance > 0).sort((a, b) => b.netBalance - a.netBalance),
+  )
+
+  const peopleYouOwe = computed(() =>
+    personSummaries.value.filter((p) => p.netBalance < 0).sort((a, b) => a.netBalance - b.netBalance),
+  )
+
+  const settledPeople = computed(() =>
+    personSummaries.value
+      .filter((p) => p.netBalance === 0 && p.settledDate)
+      .sort((a, b) => (a.settledDate! < b.settledDate! ? 1 : -1)),
+  )
 
   // --- Monthly trend (last N months, income vs expense) ---
   function monthlyTrend(months = 6) {
@@ -752,9 +760,7 @@ export function useLedger() {
     balance,
     balanceForWallet,
     savings,
-    owedToYou,
     totalOwedToYou,
-    owedByYou,
     totalOwedByYou,
     plannedSpend,
     thisMonthSpend,
@@ -773,6 +779,9 @@ export function useLedger() {
     categoryUsageCounts,
     suggestedPeople,
     personSummaries,
+    peopleOwedToYou,
+    peopleYouOwe,
+    settledPeople,
     monthlyTrend,
     pastTransactions,
     recentActivity,

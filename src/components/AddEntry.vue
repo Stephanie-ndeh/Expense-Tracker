@@ -132,7 +132,9 @@ const debtHint = computed(() => {
   if ((form.type !== 'repay' && form.type !== 'payback') || !form.label.trim()) return null
   const match = personSummaries.value.find((p) => p.name.toLowerCase() === form.label.trim().toLowerCase())
   if (!match) return null
-  return form.type === 'repay' ? { text: 'Owed', amount: match.netOwed } : { text: 'You owe', amount: match.netOwe }
+  return form.type === 'repay'
+    ? { text: 'Owed', amount: match.lent - match.repaid }
+    : { text: 'You owe', amount: match.borrowed - match.paidBack }
 })
 
 // A stale label from one type shouldn't leak into the next.

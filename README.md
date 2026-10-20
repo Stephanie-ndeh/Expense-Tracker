@@ -7,7 +7,7 @@ A tiny, honest expense tracker for yourself: what you have, what you're owed, wh
 - **Add entry** — log money spent, received, lent to someone, paid back, saved, or withdrawn from savings.
 - **Wallets** — split money across more than one wallet (e.g. Personal, Business); everything can also be viewed combined.
 - **Balance** — always shown up top, updates the moment you log something.
-- **Owed to you** — running total of what people owe you from money you've lent.
+- **Owed to you / You owe** — each person's net balance across lending and borrowing; settles to zero and drops off the list once you're even.
 - **Savings** — money you've set aside, tracked separately from spendable balance.
 - **Coming up** — expenses/loans you know are coming but haven't happened yet (mark "Just planned" or pick a future date), so you can see what you'll be down to.
 - Sign in with email/password and your data syncs to your account via Supabase — available on any device you sign into, gone from the app the moment you sign out of a browser.
